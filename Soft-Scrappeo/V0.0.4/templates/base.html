@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Radar CRM{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --red-950:#2d0505;--red-900:#450a0a;--red-800:#7f1d1d;--red-700:#991b1b;
+  --red-600:#b91c1c;--red-500:#dc2626;--red-400:#ef4444;--red-100:#fee2e2;
+  --bg:#0f0f0f;--bg2:#1a1a1a;--bg3:#222;--border:#2e2e2e;--border2:#3a3a3a;
+  --text:#f0f0f0;--muted:#888;--hint:#555;
+  --success:#16a34a;--warning:#d97706;--info:#0284c7;
+  --radius:8px;--radius-l:12px;--sw:240px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--text);
+     display:flex;min-height:100vh;font-size:14px;-webkit-font-smoothing:antialiased}
+/* ── Sidebar ── */
+.sidebar{width:var(--sw);background:var(--bg2);border-right:1px solid var(--border);
+  display:flex;flex-direction:column;position:fixed;top:0;left:0;bottom:0;z-index:100;overflow-y:auto}
+.sidebar-logo{padding:1.1rem 1.2rem;display:flex;align-items:center;gap:.7rem;
+  border-bottom:1px solid var(--border)}
+.logo-icon{width:32px;height:32px;background:linear-gradient(135deg,var(--red-700),var(--red-500));
+  border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.95rem;flex-shrink:0;
+  box-shadow:0 2px 8px rgba(220,38,38,.3)}
+.logo-text{font-size:.98rem;font-weight:700;color:var(--text)}
+.logo-sub{font-size:.62rem;color:var(--red-400);font-weight:500;letter-spacing:.08em;text-transform:uppercase}
+.sec-label{padding:.5rem .8rem .15rem;font-size:.62rem;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--hint);margin-top:.5rem}
+.nav-item{display:flex;align-items:center;gap:.55rem;padding:.5rem .9rem;margin:1px .45rem;
+  border-radius:var(--radius);color:var(--muted);text-decoration:none;font-weight:500;font-size:.84rem;transition:all .15s}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:rgba(185,28,28,.15);color:var(--red-400)}
+.nav-icon{width:17px;text-align:center;font-size:.95rem}
+.nav-badge{margin-left:auto;background:var(--red-700);color:white;border-radius:99px;
+  font-size:.62rem;font-weight:700;padding:.1rem .4rem;min-width:18px;text-align:center}
+.sidebar-user{margin-top:auto;padding:.9rem;border-top:1px solid var(--border)}
+.user-card{display:flex;align-items:center;gap:.55rem;padding:.55rem;border-radius:var(--radius);background:var(--bg3)}
+.user-av{width:30px;height:30px;background:var(--red-800);border-radius:50%;
+  display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;
+  color:var(--red-100);flex-shrink:0}
+.user-name{font-size:.8rem;font-weight:600;color:var(--text)}
+.user-role{font-size:.65rem;color:var(--muted)}
+.user-logout{margin-left:auto;color:var(--muted);text-decoration:none;font-size:.95rem;transition:color .15s}
+.user-logout:hover{color:var(--red-400)}
+/* ── Main ── */
+.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column}
+.topbar{background:var(--bg2);border-bottom:1px solid var(--border);height:54px;
+  display:flex;align-items:center;padding:0 1.6rem;gap:.9rem;position:sticky;top:0;z-index:50}
+.topbar-title{font-size:1rem;font-weight:700}
+.topbar-sub{font-size:.76rem;color:var(--muted)}
+.topbar-right{margin-left:auto;display:flex;align-items:center;gap:.65rem}
+.content{padding:1.6rem;flex:1}
+/* ── Flash ── */
+.flash-wrap{padding:0 1.6rem;padding-top:.7rem}
+.alert{padding:.65rem .9rem;border-radius:var(--radius);font-size:.82rem;font-weight:500;
+  margin-bottom:.4rem;display:flex;align-items:center;gap:.45rem;border:1px solid}
+.alert-success{background:#052e16;border-color:#166534;color:#86efac}
+.alert-error{background:#2d0505;border-color:var(--red-800);color:var(--red-400)}
+.alert-info{background:#0c1a2e;border-color:#1e40af;color:#93c5fd}
+/* ── Cards ── */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-l);padding:1.3rem}
+.card-header{display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:1.1rem;padding-bottom:.85rem;border-bottom:1px solid var(--border)}
+.card-title{font-size:.92rem;font-weight:700}
+/* ── Stats ── */
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.9rem;margin-bottom:1.4rem}
+.stat-card{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-l);padding:1.1rem 1.3rem}
+.stat-label{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:.35rem}
+.stat-value{font-size:1.9rem;font-weight:700;line-height:1;color:var(--text)}
+.stat-value.red{color:var(--red-400)}.stat-value.green{color:#4ade80}
+/* ── Botones ── */
+.btn{display:inline-flex;align-items:center;gap:.35rem;padding:.45rem .9rem;
+  border-radius:var(--radius);font-family:'Inter',sans-serif;font-size:.8rem;font-weight:600;
+  cursor:pointer;border:none;text-decoration:none;transition:all .15s;white-space:nowrap}
+.btn-red{background:var(--red-700);color:white}.btn-red:hover{background:var(--red-600)}
+.btn-outline{background:transparent;color:var(--muted);border:1px solid var(--border2)}
+.btn-outline:hover{background:var(--bg3);color:var(--text)}
+.btn-ghost{background:transparent;color:var(--muted);padding:.35rem .65rem}
+.btn-ghost:hover{color:var(--text)}
+.btn-success{background:#166534;color:white}.btn-success:hover{background:#15803d}
+.btn-green{background:rgba(22,163,74,.15);color:#4ade80;border:1px solid rgba(22,163,74,.3)}
+.btn-green:hover{background:rgba(22,163,74,.25)}
+.btn-sm{padding:.3rem .65rem;font-size:.74rem}
+/* ── Tabla ── */
+.table-wrap{overflow-x:auto}
+table{width:100%;border-collapse:collapse}
+th{background:var(--bg3);color:var(--muted);font-size:.67rem;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;padding:.65rem .85rem;text-align:left;border-bottom:1px solid var(--border)}
+td{padding:.65rem .85rem;border-bottom:1px solid var(--border);font-size:.8rem;color:var(--text);vertical-align:middle}
+tr:hover td{background:var(--bg3)}
+tr:last-child td{border-bottom:none}
+/* ── Forms ── */
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:.9rem}
+.form-group{display:flex;flex-direction:column;gap:.3rem}
+.form-group.full{grid-column:1/-1}
+.form-label{font-size:.72rem;font-weight:600;color:var(--muted);letter-spacing:.04em}
+.form-input,.form-select,.form-textarea{background:var(--bg3);border:1px solid var(--border2);
+  border-radius:var(--radius);color:var(--text);font-family:'Inter',sans-serif;font-size:.85rem;
+  padding:.5rem .75rem;width:100%;transition:border-color .15s}
+.form-input:focus,.form-select:focus,.form-textarea:focus{outline:none;border-color:var(--red-600)}
+.form-select{cursor:pointer}
+.form-textarea{resize:vertical;min-height:75px}
+/* ── Badges ── */
+.badge{display:inline-flex;align-items:center;padding:.18rem .5rem;border-radius:99px;font-size:.68rem;font-weight:600}
+.badge-red{background:rgba(185,28,28,.2);color:var(--red-400)}
+.badge-green{background:rgba(22,163,74,.2);color:#4ade80}
+.badge-yellow{background:rgba(234,179,8,.2);color:#facc15}
+.badge-blue{background:rgba(37,99,235,.2);color:#60a5fa}
+.badge-purple{background:rgba(147,51,234,.2);color:#c084fc}
+.badge-gray{background:rgba(100,116,139,.2);color:#94a3b8}
+.badge-pink{background:rgba(236,72,153,.2);color:#f472b6}
+/* ── Modal ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);
+  z-index:1000;align-items:center;justify-content:center;padding:1rem}
+.modal-overlay.show{display:flex}
+.modal{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-l);
+  padding:1.6rem;width:100%;max-width:500px;position:relative;max-height:90vh;overflow-y:auto}
+.modal-title{font-size:1rem;font-weight:700;margin-bottom:1.1rem;padding-bottom:.75rem;border-bottom:1px solid var(--border)}
+.modal-close{position:absolute;top:1rem;right:1rem;background:none;border:none;color:var(--muted);font-size:1rem;cursor:pointer}
+.modal-close:hover{color:var(--text)}
+/* ── Notif dropdown ── */
+.notif-btn{position:relative;cursor:pointer;background:none;border:none;color:var(--muted);
+  font-size:1.1rem;padding:.3rem;border-radius:var(--radius);transition:color .15s}
+.notif-btn:hover{color:var(--text)}
+.notif-dot{position:absolute;top:1px;right:1px;width:8px;height:8px;background:var(--red-500);
+  border-radius:50%;border:2px solid var(--bg2)}
+.notif-dropdown{position:absolute;top:calc(100% + 8px);right:0;width:320px;
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-l);
+  box-shadow:0 8px 24px rgba(0,0,0,.4);z-index:200;display:none;overflow:hidden}
+.notif-dropdown.show{display:block}
+.notif-head{padding:.75rem 1rem;border-bottom:1px solid var(--border);
+  display:flex;align-items:center;justify-content:space-between;
+  font-size:.78rem;font-weight:600}
+.notif-item{padding:.65rem 1rem;border-bottom:1px solid var(--border);
+  display:flex;gap:.65rem;align-items:flex-start;cursor:pointer;transition:background .15s}
+.notif-item:hover{background:var(--bg3)}
+.notif-item.unread{background:rgba(185,28,28,.06)}
+.notif-item:last-child{border-bottom:none}
+.notif-icon{width:28px;height:28px;border-radius:8px;display:flex;align-items:center;
+  justify-content:center;font-size:.85rem;flex-shrink:0}
+.notif-icon.success{background:rgba(22,163,74,.15)}
+.notif-icon.info{background:rgba(37,99,235,.15)}
+.notif-icon.lead{background:rgba(147,51,234,.15)}
+.notif-icon.chat{background:rgba(236,72,153,.15)}
+.notif-title{font-size:.78rem;font-weight:600;line-height:1.2}
+.notif-sub{font-size:.72rem;color:var(--muted);margin-top:.1rem}
+.notif-time{font-size:.65rem;color:var(--hint);margin-top:.15rem}
+/* ── Util ── */
+.flex{display:flex}.gap-1{gap:.5rem}.gap-2{gap:1rem}.items-center{align-items:center}
+.justify-between{justify-content:space-between}
+.mt-1{margin-top:.5rem}.mt-2{margin-top:1rem}.mb-1{margin-bottom:.5rem}.mb-2{margin-bottom:1rem}
+.text-muted{color:var(--muted);font-size:.78rem}.text-red{color:var(--red-400)}.text-sm{font-size:.78rem}
+.tend-sube{color:#4ade80;font-weight:600}.tend-baja{color:var(--red-400);font-weight:600}.tend-igual{color:var(--muted)}
+.licita-si{color:#4ade80;font-weight:600}.licita-no{color:var(--red-400)}.licita-nd{color:var(--muted)}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px}
+@media(max-width:768px){.sidebar{transform:translateX(-100%)}.main{margin-left:0}.form-row{grid-template-columns:1fr}}
+</style>
+{% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">📡</div>
+    <div>
+      <div class="logo-text">Radar CRM</div>
+      <div class="logo-sub">{{ current_user.rol }}</div>
+    </div>
+  </div>
+
+  {% if current_user.es_admin %}
+  <div class="sec-label">Admin</div>
+  <a href="{{ url_for('admin_dashboard') }}"   class="nav-item {% if request.endpoint=='admin_dashboard' %}active{% endif %}"><span class="nav-icon">📊</span>Dashboard</a>
+  <a href="{{ url_for('admin_usuarios') }}"    class="nav-item {% if request.endpoint=='admin_usuarios' %}active{% endif %}"><span class="nav-icon">👥</span>Usuarios</a>
+  <a href="{{ url_for('admin_asignaciones') }}" class="nav-item {% if request.endpoint=='admin_asignaciones' %}active{% endif %}"><span class="nav-icon">📋</span>Asignaciones</a>
+  <a href="{{ url_for('supervisor_dashboard') }}" class="nav-item {% if request.endpoint=='supervisor_dashboard' %}active{% endif %}"><span class="nav-icon">🔍</span>Supervisión</a>
+  <a href="{{ url_for('admin_export_leads') }}" class="nav-item"><span class="nav-icon">📥</span>Exportar Excel</a>
+  {% endif %}
+
+  {% if current_user.es_supervisor %}
+  <div class="sec-label">Supervisor</div>
+  <a href="{{ url_for('supervisor_dashboard') }}" class="nav-item {% if request.endpoint=='supervisor_dashboard' %}active{% endif %}"><span class="nav-icon">📊</span>Control equipo</a>
+  {% endif %}
+
+  <div class="sec-label">Comercial</div>
+  <a href="{{ url_for('comercial_kanban') }}" class="nav-item {% if request.endpoint=='comercial_kanban' %}active{% endif %}"><span class="nav-icon">🗂️</span>Kanban</a>
+
+  <div class="sec-label">Comunicación</div>
+  <a href="{{ url_for('chat') }}" class="nav-item {% if request.endpoint=='chat' %}active{% endif %}">
+    <span class="nav-icon">💬</span>Chat
+    {% if chat_count > 0 %}<span class="nav-badge">{{ chat_count }}</span>{% endif %}
+  </a>
+  <a href="{{ url_for('notificaciones') }}" class="nav-item {% if request.endpoint=='notificaciones' %}active{% endif %}">
+    <span class="nav-icon">🔔</span>Notificaciones
+    {% if notif_count > 0 %}<span class="nav-badge">{{ notif_count }}</span>{% endif %}
+  </a>
+
+  <div class="sidebar-user">
+    <div class="user-card">
+      <div class="user-av">{{ current_user.nombre[:2]|upper }}</div>
+      <div>
+        <div class="user-name">{{ current_user.nombre }}</div>
+        <div class="user-role">{{ current_user.rol|capitalize }}</div>
+      </div>
+      <a href="{{ url_for('logout') }}" class="user-logout" title="Salir">⏻</a>
+    </div>
+  </div>
+</aside>
+
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">{% block topbar_title %}{% endblock %}</div>
+      <div class="topbar-sub">{% block topbar_sub %}{% endblock %}</div>
+    </div>
+    <div class="topbar-right">
+      {% block topbar_right %}{% endblock %}
+      <!-- Campana notificaciones -->
+      <div style="position:relative" id="notif-wrap">
+        <button class="notif-btn" onclick="toggleNotif()" id="notif-btn">
+          🔔
+          {% if notif_count > 0 %}<span class="notif-dot"></span>{% endif %}
+        </button>
+        <div class="notif-dropdown" id="notif-dropdown">
+          <div class="notif-head">
+            <span>Notificaciones</span>
+            <button onclick="leerTodas()" style="background:none;border:none;color:var(--muted);
+                    font-size:.72rem;cursor:pointer;font-family:inherit">Marcar todas leídas</button>
+          </div>
+          <div id="notif-list">
+            <div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.8rem">
+              Cargando…
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-wrap">
+      {% for cat, msg in messages %}
+      <div class="alert alert-{{ cat }}">
+        {% if cat=='success' %}✓{% elif cat=='error' %}✗{% else %}ℹ{% endif %} {{ msg }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="content">{% block content %}{% endblock %}</div>
+</div>
+
+{% block extra_js %}{% endblock %}
+<script>
+// ── Notificaciones ────────────────────────────────────────────────────────
+let notifOpen = false;
+function toggleNotif() {
+  notifOpen = !notifOpen;
+  document.getElementById('notif-dropdown').classList.toggle('show', notifOpen);
+  if (notifOpen) cargarNotifs();
+}
+document.addEventListener('click', e => {
+  if (!document.getElementById('notif-wrap').contains(e.target)) {
+    notifOpen = false;
+    document.getElementById('notif-dropdown').classList.remove('show');
+  }
+});
+function cargarNotifs() {
+  fetch('/api/notificaciones').then(r=>r.json()).then(d => {
+    const list = document.getElementById('notif-list');
+    if (!d.items.length) {
+      list.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.8rem">Sin notificaciones nuevas</div>';
+      return;
+    }
+    const iconos = { success:'✅', info:'ℹ️', lead:'🏷️', chat:'💬', warning:'⚠️' };
+    list.innerHTML = d.items.map(n => `
+      <div class="notif-item unread" onclick="irNotif(${n.id},'${n.url||''}')">
+        <div class="notif-icon ${n.tipo}">${iconos[n.tipo]||'🔔'}</div>
+        <div>
+          <div class="notif-title">${n.titulo}</div>
+          ${n.texto ? `<div class="notif-sub">${n.texto}</div>` : ''}
+          <div class="notif-time">${n.fecha}</div>
+        </div>
+      </div>`).join('');
+  });
+}
+function irNotif(id, url) {
+  fetch(`/api/notificaciones/${id}/leer`, {method:'POST'});
+  if (url) window.location.href = url;
+  toggleNotif();
+}
+function leerTodas() {
+  fetch('/api/notificaciones/leer', {method:'POST'}).then(() => {
+    document.getElementById('notif-list').innerHTML =
+      '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.8rem">Sin notificaciones nuevas</div>';
+  });
+}
+// Polling notificaciones cada 30s
+setInterval(() => {
+  fetch('/api/notificaciones').then(r=>r.json()).then(d => {
+    const btn = document.getElementById('notif-btn');
+    const dot = btn.querySelector('.notif-dot');
+    if (d.total > 0 && !dot) {
+      const s = document.createElement('span');
+      s.className = 'notif-dot'; btn.appendChild(s);
+    } else if (d.total === 0 && dot) dot.remove();
+    // Actualizar badges sidebar
+    document.querySelectorAll('[data-notif-badge]').forEach(el => {
+      el.textContent = d.total > 0 ? d.total : '';
+    });
+  }).catch(()=>{});
+}, 30000);
+</script>
+</body>
+</html>

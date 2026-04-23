@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar CRM — Acceso</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', sans-serif;
+    background: #0f0f0f;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    -webkit-font-smoothing: antialiased;
+  }
+  .bg-grid {
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(185,28,28,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(185,28,28,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+  }
+  .bg-glow {
+    position: fixed;
+    width: 500px; height: 300px;
+    background: radial-gradient(ellipse, rgba(185,28,28,0.1) 0%, transparent 70%);
+    top: -80px; left: 50%; transform: translateX(-50%);
+    pointer-events: none;
+  }
+  .login-wrap {
+    position: relative;
+    width: 100%;
+    max-width: 420px;
+    padding: 1.5rem;
+  }
+  .login-header {
+    text-align: center;
+    margin-bottom: 2rem;
+  }
+  .logo-icon {
+    width: 56px; height: 56px;
+    background: linear-gradient(135deg, #991b1b, #dc2626);
+    border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem;
+    margin: 0 auto 1rem;
+    box-shadow: 0 4px 20px rgba(220,38,38,0.3);
+  }
+  .login-title {
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: #f0f0f0;
+    letter-spacing: -0.02em;
+  }
+  .login-sub {
+    color: #666;
+    font-size: 0.88rem;
+    margin-top: 0.3rem;
+  }
+  .login-card {
+    background: #1a1a1a;
+    border: 1px solid #2e2e2e;
+    border-radius: 16px;
+    padding: 2rem;
+  }
+  .form-group {
+    margin-bottom: 1.1rem;
+  }
+  label {
+    display: block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #888;
+    margin-bottom: 0.35rem;
+    letter-spacing: 0.04em;
+  }
+  input {
+    width: 100%;
+    height: 44px;
+    background: #222;
+    border: 1px solid #333;
+    border-radius: 9px;
+    color: #f0f0f0;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.92rem;
+    padding: 0 0.9rem;
+    transition: border-color 0.15s;
+  }
+  input:focus {
+    outline: none;
+    border-color: #b91c1c;
+    box-shadow: 0 0 0 3px rgba(185,28,28,0.15);
+  }
+  .btn-login {
+    width: 100%;
+    height: 46px;
+    background: #b91c1c;
+    color: white;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    margin-top: 0.5rem;
+    transition: background 0.15s;
+    box-shadow: 0 2px 8px rgba(185,28,28,0.25);
+  }
+  .btn-login:hover { background: #991b1b; }
+  .alert-error {
+    background: #2d0505;
+    border: 1px solid #7f1d1d;
+    color: #ef4444;
+    border-radius: 8px;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.84rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .footer {
+    text-align: center;
+    margin-top: 1.5rem;
+    font-size: 0.75rem;
+    color: #444;
+  }
+</style>
+</head>
+<body>
+<div class="bg-grid"></div>
+<div class="bg-glow"></div>
+
+<div class="login-wrap">
+  <div class="login-header">
+    <div class="logo-icon">📡</div>
+    <h1 class="login-title">Radar CRM</h1>
+    <p class="login-sub">Plataforma de gestión de leads y licitaciones</p>
+  </div>
+
+  <div class="login-card">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+      <div class="alert-error">✗ {{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('login') }}">
+      <div class="form-group">
+        <label for="email">Email</label>
+        <input type="email" id="email" name="email" placeholder="tu@empresa.com"
+               required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="password">Contraseña</label>
+        <input type="password" id="password" name="password"
+               placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <button type="submit" class="btn-login">Entrar →</button>
+    </form>
+  </div>
+
+  <p class="footer">Radar CRM © {{ now.year if now else '2024' }} · Uso interno</p>
+</div>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% block title %}Sin permiso{% endblock %}
+{% block topbar_title %}Sin permiso{% endblock %}
+{% block content %}
+<div style="text-align:center;padding:4rem;color:var(--muted)">
+  <div style="font-size:3rem;margin-bottom:1rem">🔒</div>
+  <h2 style="color:var(--text);margin-bottom:.5rem">Acceso denegado</h2>
+  <p>No tienes permiso para ver esta página.</p>
+  <a href="{{ url_for('home') }}" class="btn btn-red" style="margin-top:1.5rem">← Volver al inicio</a>
+</div>
+{% endblock %}

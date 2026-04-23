@@ -1,0 +1,108 @@
+Re-enriqueciendo 184 leads...
+-> FANUC IBERIA SLU
+-> FESTO AUTOMATION SA.
+-> DMG MORI IBERICA SLU
+-> INGENIEURGEMEINSCHAFT FUER MESSTECHNIK ELECTRONIC SL
+-> WACKER NEUSON SA
+-> CROWN LIFT TRUCKS SL
+-> COMERCIAL EINHELL SA
+-> MYCSA MULDER Y CO. IMPORTACIONES-EXPORTACIONES SL
+-> CMZ IBERIA CNC SOCIEDAD ANONIMA.
+-> CERATIZIT IBERICA HERRAMIENTAS DE PRECISION SL.
+-> TEXAS CONTROLS SL
+-> SERVICIO Y MAQUINARIA ARAGONESES SA
+-> TECNOPOWER TRANSMISION Y MOVIMIENTO LINEAL SL
+-> CAREL CONTROLS IBERICA SL
+-> BUSCH IBERICA SA
+-> CALVERA HYDROGEN SOCIEDAD ANONIMA.
+-> EGASCA SA
+-> GEORG FISCHER SA
+-> MAQUINA CENTER SA
+-> FERRETERIA Y MAQUINARIA PARA LA CONSTRUCCION SOCIEDAD ANONIMA
+-> PEPPERL & FUCHS SA
+-> ASLAK MACHINES & TOOLS S.L.
+-> ALIANZA ALEMAN BLAKER SL
+-> RODAMIENTOS VIGO SA
+-> MARTECH GROUP EQUIPMENTS SOCIEDAD LIMITADA.
+-> AYMA HERRAMIENTAS SLU
+-> MAQUITEN SA
+-> MODULA LOGISTICA Y ALMACENAJE SL
+-> URTZINOX SL
+-> VINCA EQUIPOS INDUSTRIALES SA
+-> FESTOOL SPAIN SLU
+-> GENERGY POWER PRODUCTS SOCIEDAD LIMITADA.
+-> CORZO MAQUINARIA INDUSTRIAL SA
+-> MAQUINARIA ELECTRICA BILBAO SA
+-> COMERCIAL DE SOLDADURA SA
+-> CUTTING TOOLS SL
+-> COHERSA INDUSTRIAS SA
+-> ABINA SL
+-> BOMBAS CAPRARI SA
+-> VOILAP IBERICA S.A.
+-> POLYTHERM SISTEMAS SA.
+-> AIGNEP IBERICA SA
+-> A. J. J. STORES SOCIEDAD ANONIMA.
+-> PIPES&FITTINGS EQOFLUIDS SOCIEDAD LIMITADA
+-> UNITED MACHINING IBERIA S.A.
+-> DAUNERT MAQUINAS HERRAMIENTAS SA
+-> TECNICAS DE PERFORACION Y FIJACION SL
+-> AERZEN IBERICA S.A.
+-> ENRIEL SL
+-> RAORSA MAQUINARIA SL
+-> DISHECO SA
+-> BASE PROTECTION GROUP SA.
+-> COMERCIAL NONO SA
+-> KINTEL WORLDWIDE SPAIN SL.
+-> KOKI IBERIA SA.
+-> SUMINISTROS INDUSTRIALES JALON SL
+-> COMERCIAL ULSA SA
+-> INTERSEAL SA
+-> TUNGALOY IBERICA SL
+-> GALA GAR SL
+-> FERREXPOR SLU
+-> FINITEC SL
+-> COMERCIAL INDUSTRIAL GARCIA SA
+-> EQUIPOS PARA MINERIA Y CONSTRUCCIONES SA
+-> JATUR SUMINISTROS INDUSTRIALES SL
+-> POCLAIN HYDRAULICS SPAIN SL
+-> TRONZADORAS MG SA
+-> LAFERMU SL
+-> ITALMATIC SOCIEDAD ANONIMA
+-> PECOMARK CANARIAS, SOCIEDAD LIMITADA.
+Traceback (most recent call last):
+  File "/var/www/html/TuaTeam/Soft-Scrappeo/V0.0.4/fix_leads.py", line 19, in <module>
+    db.session.commit()
+  File "/home/valentin/.local/lib/python3.12/site-packages/sqlalchemy/orm/scoping.py", line 597, in commit
+    return self._proxied.commit()
+           ^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/valentin/.local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 2030, in commit
+    trans.commit(_to_root=True)
+  File "<string>", line 2, in commit
+  File "/home/valentin/.local/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/home/valentin/.local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 1311, in commit
+    self._prepare_impl()
+  File "<string>", line 2, in _prepare_impl
+  File "/home/valentin/.local/lib/python3.12/site-packages/sqlalchemy/orm/state_changes.py", line 137, in _go
+    ret_value = fn(self, *arg, **kw)
+                ^^^^^^^^^^^^^^^^^^^^
+  File "/home/valentin/.local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 1286, in _prepare_impl
+    self.session.flush()
+  File "/home/valentin/.local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4331, in flush
+    self._flush(objects)
+  File "/home/valentin/.local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4466, in _flush
+    with util.safe_reraise():
+  File "/home/valentin/.local/lib/python3.12/site-packages/sqlalchemy/util/langhelpers.py", line 121, in __exit__
+    raise exc_value.with_traceback(exc_tb)
+  File "/home/valentin/.local/lib/python3.12/site-packages/sqlalchemy/orm/session.py", line 4427, in _flush
+    flush_context.execute()
+  File "/home/valentin/.local/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 466, in execute
+    rec.execute(self)
+  File "/home/valentin/.local/lib/python3.12/site-packages/sqlalchemy/orm/unitofwork.py", line 642, in execute
+    util.preloaded.orm_persistence.save_obj(
+  File "/home/valentin/.local/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 85, in save_obj
+    _emit_update_statements(
+  File "/home/valentin/.local/lib/python3.12/site-packages/sqlalchemy/orm/persistence.py", line 948, in _emit_update_statements
+    raise orm_exc.StaleDataError(
+sqlalchemy.orm.exc.StaleDataError: UPDATE statement on table 'leads' expected to update 1 row(s); 0 were matched.

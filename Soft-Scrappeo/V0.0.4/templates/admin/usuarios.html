@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+{% block title %}Usuarios — Radar CRM{% endblock %}
+{% block topbar_title %}Usuarios{% endblock %}
+{% block topbar_sub %}Gestión de cuentas{% endblock %}
+{% block topbar_right %}
+<button class="btn btn-red" onclick="document.getElementById('modal-nuevo').classList.add('show')">
+  + Nuevo usuario
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Email</th>
+          <th>Rol</th>
+          <th>Estado</th>
+          <th>Último acceso</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in usuarios %}
+        <tr>
+          <td>
+            <div style="display:flex;align-items:center;gap:0.6rem">
+              <div style="width:30px;height:30px;border-radius:50%;background:var(--red-800);
+                          display:flex;align-items:center;justify-content:center;
+                          font-size:0.72rem;font-weight:700;color:var(--red-100);flex-shrink:0">
+                {{ u.nombre[:2]|upper }}
+              </div>
+              {{ u.nombre }}
+            </div>
+          </td>
+          <td>{{ u.email }}</td>
+          <td>
+            {% if u.rol == 'admin' %}
+              <span class="badge badge-red">Admin</span>
+            {% elif u.rol == 'supervisor' %}
+              <span class="badge badge-blue">Supervisor</span>
+            {% else %}
+              <span class="badge badge-gray">Comercial</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if u.activo %}
+              <span class="badge badge-green">Activo</span>
+            {% else %}
+              <span class="badge badge-red">Inactivo</span>
+            {% endif %}
+          </td>
+          <td class="text-muted">
+            {{ u.ultimo_acceso|fmt_fecha if u.ultimo_acceso else 'Nunca' }}
+          </td>
+          <td>
+            <div class="flex gap-1">
+              {% if u.id != current_user.id %}
+              <form method="POST"
+                    action="{{ url_for('admin_usuario_toggle', uid=u.id) }}"
+                    style="display:inline">
+                <button class="btn btn-outline btn-sm" type="submit">
+                  {{ 'Desactivar' if u.activo else 'Activar' }}
+                </button>
+              </form>
+              <form method="POST"
+                    action="{{ url_for('admin_usuario_eliminar', uid=u.id) }}"
+                    style="display:inline"
+                    onsubmit="return confirm('¿Eliminar usuario «{{ u.nombre }}»?')">
+                <button class="btn btn-sm"
+                        style="background:rgba(185,28,28,0.15);color:var(--red-400)"
+                        type="submit">Eliminar</button>
+              </form>
+              {% else %}
+                <span class="text-muted text-sm">Tú</span>
+              {% endif %}
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal nuevo usuario -->
+<div class="modal-overlay" id="modal-nuevo">
+  <div class="modal">
+    <button class="modal-close"
+            onclick="document.getElementById('modal-nuevo').classList.remove('show')">✕</button>
+    <div class="modal-title">Nuevo usuario</div>
+    <form method="POST" action="{{ url_for('admin_usuario_nuevo') }}">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nombre completo</label>
+          <input class="form-input" type="text" name="nombre"
+                 placeholder="Ana García" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Email</label>
+          <input class="form-input" type="email" name="email"
+                 placeholder="ana@empresa.com" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Contraseña inicial</label>
+          <input class="form-input" type="password" name="password"
+                 placeholder="••••••••" required minlength="6">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rol</label>
+          <select class="form-select" name="rol">
+            <option value="comercial">Comercial</option>
+            <option value="supervisor">Supervisor</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1.2rem">
+        <button type="button" class="btn btn-outline"
+                onclick="document.getElementById('modal-nuevo').classList.remove('show')">
+          Cancelar
+        </button>
+        <button type="submit" class="btn btn-red">Crear usuario</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

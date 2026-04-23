@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block title %}Asignaciones — Radar CRM{% endblock %}
+{% block topbar_title %}Asignaciones de scraping{% endblock %}
+{% block topbar_sub %}Asigna un CNAE y provincia a cada comercial{% endblock %}
+{% block topbar_right %}
+<button class="btn btn-red"
+        onclick="document.getElementById('modal-asig').classList.add('show')">
+  + Nueva asignación
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Comercial</th>
+          <th>CNAE</th>
+          <th>Provincia</th>
+          <th>Páginas</th>
+          <th>Estado</th>
+          <th>Leads</th>
+          <th>Creada por</th>
+          <th>Fecha</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in asigns %}
+        <tr id="row-{{ a.id }}">
+          <td>
+            <strong>{{ a.comercial.nombre }}</strong>
+          </td>
+          <td>
+            <span class="badge badge-red">{{ a.cnae }}</span>
+            {% if a.cnae_desc %}
+            <div class="text-muted text-sm">{{ a.cnae_desc }}</div>
+            {% endif %}
+          </td>
+          <td>{{ a.provincia or '— Nacional —' }}</td>
+          <td style="text-align:center">{{ a.paginas }}</td>
+          <td>
+            <span class="estado-badge" id="est-badge-{{ a.id }}">
+              {% if a.estado == 'completada' %}
+                <span class="badge badge-green">✓ Completada</span>
+              {% elif a.estado == 'scrapeando' %}
+                <span class="badge badge-yellow">⟳ <span id="pct-{{ a.id }}">{{ a.progreso }}</span>%</span>
+              {% elif a.estado == 'error' %}
+                <span class="badge badge-red" title="{{ a.mensaje }}">✗ Error</span>
+              {% else %}
+                <span class="badge badge-gray">Pendiente</span>
+              {% endif %}
+            </span>
+            {% if a.mensaje and a.estado not in ('completada', 'scrapeando') %}
+            <div class="text-muted text-sm" style="max-width:180px;white-space:nowrap;
+                 overflow:hidden;text-overflow:ellipsis" title="{{ a.mensaje }}">
+              {{ a.mensaje }}
+            </div>
+            {% endif %}
+          </td>
+          <td style="text-align:center">
+            <strong id="total-{{ a.id }}">{{ a.total_leads }}</strong>
+          </td>
+          <td>{{ a.creado_por.nombre if a.creado_por else '—' }}</td>
+          <td class="text-muted">{{ a.fecha_creacion|fmt_fecha }}</td>
+          <td>
+            <div class="flex gap-1">
+              {% if a.estado == 'completada' %}
+              <a href="{{ url_for('comercial_kanban', user_id=a.comercial_id) }}"
+                 class="btn btn-outline btn-sm">Kanban</a>
+              {% endif %}
+              <form method="POST"
+                    action="{{ url_for('admin_asignacion_eliminar', aid=a.id) }}"
+                    style="display:inline"
+                    onsubmit="return confirm('¿Eliminar asignación y todos sus leads?')">
+                <button class="btn btn-sm"
+                        style="background:rgba(185,28,28,0.15);color:var(--red-400)">
+                  Eliminar
+                </button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" style="text-align:center;color:var(--muted);padding:3rem">
+            No hay asignaciones todavía. Crea la primera.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal nueva asignación -->
+<div class="modal-overlay" id="modal-asig">
+  <div class="modal">
+    <button class="modal-close"
+            onclick="document.getElementById('modal-asig').classList.remove('show')">✕</button>
+    <div class="modal-title">Nueva asignación</div>
+    <form method="POST" action="{{ url_for('admin_asignacion_nueva') }}">
+      <div class="form-row">
+        <div class="form-group full">
+          <label class="form-label">Comercial <span style="color:var(--red-400)">*</span></label>
+          <select class="form-select" name="comercial_id" required>
+            <option value="">— Selecciona —</option>
+            {% for c in comerciales %}
+            <option value="{{ c.id }}">{{ c.nombre }} ({{ c.email }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Código CNAE <span style="color:var(--red-400)">*</span></label>
+          <input class="form-input" type="text" name="cnae"
+                 placeholder="Ej: 4662" pattern="\d{3,5}" required
+                 title="3–5 dígitos">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descripción CNAE</label>
+          <input class="form-input" type="text" name="cnae_desc"
+                 placeholder="Ej: Máquinas herramienta">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Provincia</label>
+          <select class="form-select" name="provincia">
+            <option value="">— Toda España —</option>
+            <option>Álava</option><option>Albacete</option><option>Alicante</option>
+            <option>Almería</option><option>Asturias</option><option>Ávila</option>
+            <option>Badajoz</option><option>Barcelona</option><option>Bizkaia</option>
+            <option>Burgos</option><option>Cáceres</option><option>Cádiz</option>
+            <option>Cantabria</option><option>Castellón</option><option>Ciudad Real</option>
+            <option>Córdoba</option><option>Coruña</option><option>Cuenca</option>
+            <option>Gerona</option><option>Gipuzkoa</option><option>Granada</option>
+            <option>Guadalajara</option><option>Huelva</option><option>Huesca</option>
+            <option>Islas Baleares</option><option>Jaén</option><option>La Rioja</option>
+            <option>Las Palmas</option><option>León</option><option>Lleida</option>
+            <option>Lugo</option><option>Madrid</option><option>Málaga</option>
+            <option>Murcia</option><option>Navarra</option><option>Ourense</option>
+            <option>Palencia</option><option>Pontevedra</option><option>Salamanca</option>
+            <option>Segovia</option><option>Sevilla</option><option>Soria</option>
+            <option>Tarragona</option><option>Tenerife</option><option>Teruel</option>
+            <option>Toledo</option><option>Valencia</option><option>Valladolid</option>
+            <option>Zamora</option><option>Zaragoza</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Páginas a scrapear
+            <span class="text-muted">(100 empresas/pág)</span>
+          </label>
+          <input class="form-input" type="number" name="paginas"
+                 value="3" min="1" max="10">
+        </div>
+      </div>
+      <div style="background:rgba(185,28,28,0.08);border:1px solid rgba(185,28,28,0.2);
+                  border-radius:8px;padding:0.8rem;margin-top:0.8rem;
+                  font-size:0.8rem;color:#f87171">
+        ℹ Al crear la asignación se lanzará el scraping automáticamente
+        en segundo plano. El comercial verá los leads en su Kanban cuando termine.
+      </div>
+      <div style="display:flex;gap:0.75rem;justify-content:flex-end;margin-top:1.2rem">
+        <button type="button" class="btn btn-outline"
+                onclick="document.getElementById('modal-asig').classList.remove('show')">
+          Cancelar
+        </button>
+        <button type="submit" class="btn btn-red">Crear y scrapear</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Polling para asignaciones en estado "scrapeando"
+(function() {
+  const scrapeando = {{ asigns | selectattr('estado', 'eq', 'scrapeando') | list | length }};
+  if (!scrapeando) return;
+
+  function poll() {
+    document.querySelectorAll('[id^="est-badge-"]').forEach(el => {
+      const aid = el.id.replace('est-badge-', '');
+      const pct = document.getElementById('pct-' + aid);
+      if (!pct) return;
+
+      fetch(`/admin/asignaciones/${aid}/estado`)
+        .then(r => r.json())
+        .then(d => {
+          document.getElementById('total-' + aid).textContent = d.total;
+          if (d.estado === 'completada') {
+            el.innerHTML = '<span class="badge badge-green">✓ Completada</span>';
+            document.getElementById('total-' + aid).textContent = d.total;
+          } else if (d.estado === 'error') {
+            el.innerHTML = `<span class="badge badge-red" title="${d.mensaje}">✗ Error</span>`;
+          } else if (pct) {
+            pct.textContent = d.progreso;
+          }
+        });
+    });
+  }
+  poll();
+  setInterval(poll, 3000);
+})();
+</script>
+{% endblock %}

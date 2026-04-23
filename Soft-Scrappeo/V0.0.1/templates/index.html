@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar Competidor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background: #f8fafc;
+    color: #1e293b;
+    min-height: 100vh;
+  }
+
+  /* ── CABECERA ── */
+  .topbar {
+    background: #fff;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 0 2rem;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+  }
+  .topbar-logo {
+    width: 36px; height: 36px;
+    background: #2563eb;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+  .topbar-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #1e293b;
+  }
+  .topbar-sep { color: #cbd5e1; margin: 0 0.2rem; }
+  .topbar-desc {
+    font-size: 0.82rem;
+    color: #64748b;
+    font-weight: 400;
+  }
+  .topbar-badge {
+    margin-left: auto;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 6px;
+    padding: 0.25rem 0.7rem;
+    font-size: 0.72rem;
+    color: #2563eb;
+    font-weight: 600;
+  }
+
+  /* ── LAYOUT ── */
+  .page {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 5rem;
+  }
+
+  /* ── SECCIÓN HERO ── */
+  .hero {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 2rem 2.2rem;
+    margin-bottom: 1.5rem;
+    display: flex;
+    gap: 1.5rem;
+    align-items: flex-start;
+  }
+  .hero-icon {
+    width: 56px; height: 56px;
+    background: linear-gradient(135deg, #eff6ff, #dbeafe);
+    border: 1px solid #bfdbfe;
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.6rem;
+    flex-shrink: 0;
+  }
+  .hero-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #1e293b;
+    margin-bottom: 0.35rem;
+  }
+  .hero-title strong { color: #2563eb; }
+  .hero-body {
+    font-size: 0.85rem;
+    color: #64748b;
+    line-height: 1.65;
+    max-width: 520px;
+  }
+  .hero-pills {
+    display: flex; gap: 0.5rem; margin-top: 0.9rem; flex-wrap: wrap;
+  }
+  .pill {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 99px;
+    padding: 0.22rem 0.7rem;
+    font-size: 0.72rem;
+    color: #475569;
+    font-weight: 500;
+  }
+
+  /* ── ESTADÍSTICAS ── */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .stat {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 1.1rem 1.2rem;
+    text-align: center;
+  }
+  .stat-val {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #2563eb;
+    line-height: 1.1;
+  }
+  .stat-lbl {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    margin-top: 0.3rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  /* ── TARJETA FORMULARIO ── */
+  .card {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 1.8rem 2rem;
+    margin-bottom: 1.2rem;
+  }
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.1rem;
+    border-bottom: 1px solid #f1f5f9;
+  }
+  .card-head-icon {
+    width: 30px; height: 30px;
+    background: #eff6ff;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.85rem;
+  }
+  .card-head-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #1e293b;
+  }
+  .card-head-sub {
+    font-size: 0.78rem;
+    color: #94a3b8;
+    margin-left: auto;
+  }
+
+  /* ── CAMPOS ── */
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+  }
+  .field { display: flex; flex-direction: column; gap: 0.45rem; }
+  .field.wide { grid-column: 1 / -1; }
+  .field label {
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: #475569;
+  }
+  .req { color: #ef4444; margin-left: 2px; }
+  .field-hint {
+    font-size: 0.72rem;
+    color: #94a3b8;
+    font-weight: 400;
+    margin-left: 4px;
+  }
+  input[type="text"], input[type="number"], select {
+    height: 42px;
+    padding: 0 0.9rem;
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 9px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.88rem;
+    color: #1e293b;
+    width: 100%;
+    transition: border-color 0.18s, box-shadow 0.18s;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='7' viewBox='0 0 12 7'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.9rem center;
+    padding-right: 2.4rem;
+    cursor: pointer;
+  }
+  input::placeholder { color: #cbd5e1; }
+  input:focus, select:focus {
+    outline: none;
+    border-color: #2563eb;
+    box-shadow: 0 0 0 3px rgba(37,99,235,0.1);
+    background: #fff;
+  }
+  input.error { border-color: #ef4444; }
+  .err-msg { font-size: 0.72rem; color: #ef4444; display: none; margin-top: -0.3rem; }
+  .err-msg.show { display: block; }
+
+  /* ── CHIPS ── */
+  .chips-label {
+    font-size: 0.75rem;
+    color: #94a3b8;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+  }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+  .chip {
+    background: #f8fafc;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 99px;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.74rem;
+    color: #475569;
+    cursor: pointer;
+    font-weight: 500;
+    transition: all 0.15s;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+  }
+  .chip:hover {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #2563eb;
+  }
+
+  /* ── SEPARADOR ── */
+  .divider { height: 1px; background: #f1f5f9; margin: 1.3rem 0; }
+
+  /* ── AVANZADO ── */
+  .adv-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    border: none;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.8rem;
+    color: #64748b;
+    cursor: pointer;
+    font-weight: 500;
+    padding: 0.2rem 0;
+    transition: color 0.15s;
+  }
+  .adv-toggle:hover { color: #2563eb; }
+  .adv-caret {
+    width: 18px; height: 18px;
+    background: #f1f5f9;
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.5rem;
+    color: #64748b;
+    transition: transform 0.25s, background 0.15s;
+  }
+  .adv-toggle.open .adv-caret { transform: rotate(180deg); background: #dbeafe; color: #2563eb; }
+  .adv-section { overflow: hidden; max-height: 0; transition: max-height 0.35s ease; }
+  .adv-section.open { max-height: 300px; }
+  .adv-inner { padding-top: 1.2rem; }
+
+  /* ── BOTÓN PRINCIPAL ── */
+  .btn-run {
+    width: 100%;
+    height: 48px;
+    background: #2563eb;
+    color: #fff;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 11px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    margin-top: 1.4rem;
+    transition: background 0.2s, box-shadow 0.2s, transform 0.1s;
+    box-shadow: 0 2px 8px rgba(37,99,235,0.25);
+  }
+  .btn-run:hover { background: #1d4ed8; box-shadow: 0 4px 16px rgba(37,99,235,0.3); transform: translateY(-1px); }
+  .btn-run:active { transform: none; }
+  .btn-run:disabled { background: #cbd5e1; box-shadow: none; cursor: not-allowed; transform: none; }
+
+  /* ── BARRA PROGRESO ── */
+  #progress-card { display: none; }
+  #progress-card.show { display: block; }
+
+  .prog-header {
+    display: flex; align-items: center; gap: 0.8rem;
+    margin-bottom: 1rem;
+  }
+  .prog-spinner-wrap {
+    width: 34px; height: 34px;
+    background: #eff6ff;
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid #bfdbfe;
+    border-top-color: #2563eb;
+    border-radius: 50%;
+    animation: spin 0.75s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner.done { border-color: #bbf7d0; border-top-color: #16a34a; animation: none; }
+  .spinner.err  { border-color: #fecaca; border-top-color: #dc2626; animation: none; }
+  .prog-label { font-size: 0.85rem; color: #64748b; flex: 1; }
+  .prog-pct { font-size: 1rem; font-weight: 700; color: #2563eb; min-width: 38px; text-align: right; }
+  .prog-pct.done { color: #16a34a; }
+  .prog-pct.err  { color: #dc2626; }
+
+  .prog-bar-bg {
+    height: 6px;
+    background: #f1f5f9;
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .prog-bar {
+    height: 100%;
+    background: #2563eb;
+    border-radius: 99px;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+  .prog-bar.done { background: #16a34a; }
+  .prog-bar.err  { background: #dc2626; }
+
+  /* Indicadores de paso */
+  .steps {
+    display: flex; gap: 0.4rem;
+    margin-top: 0.9rem; flex-wrap: wrap;
+  }
+  .step {
+    display: flex; align-items: center; gap: 0.35rem;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 99px;
+    padding: 0.22rem 0.65rem;
+    font-size: 0.7rem;
+    color: #94a3b8;
+    font-weight: 500;
+    transition: all 0.3s;
+  }
+  .step .dot {
+    width: 5px; height: 5px;
+    background: #cbd5e1;
+    border-radius: 50%;
+    transition: background 0.3s;
+  }
+  .step.active { background: #eff6ff; border-color: #93c5fd; color: #2563eb; }
+  .step.active .dot { background: #2563eb; }
+  .step.done  { background: #f0fdf4; border-color: #86efac; color: #16a34a; }
+  .step.done  .dot { background: #16a34a; }
+
+  /* ── TARJETA DESCARGA ── */
+  #download-card { display: none; }
+  #download-card.show { display: block; }
+
+  .dl-wrap {
+    display: flex; align-items: center; gap: 1.1rem;
+    background: #f0fdf4;
+    border: 1.5px solid #86efac;
+    border-radius: 12px;
+    padding: 1.2rem 1.4rem;
+  }
+  .dl-icon {
+    width: 46px; height: 46px;
+    background: #16a34a;
+    border-radius: 11px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.3rem;
+    flex-shrink: 0;
+  }
+  .dl-title { font-size: 0.9rem; font-weight: 700; color: #14532d; }
+  .dl-sub   { font-size: 0.76rem; color: #16a34a; margin-top: 0.2rem; }
+  .dl-sheets { display: flex; gap: 0.3rem; margin-top: 0.45rem; flex-wrap: wrap; }
+  .dl-sheet {
+    background: #dcfce7;
+    border: 1px solid #86efac;
+    border-radius: 4px;
+    padding: 0.1rem 0.45rem;
+    font-size: 0.64rem;
+    color: #166534;
+    font-weight: 600;
+  }
+  .btn-dl {
+    margin-left: auto;
+    padding: 0.6rem 1.3rem;
+    background: #16a34a;
+    color: #fff;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    font-size: 0.84rem;
+    font-weight: 700;
+    border: none;
+    border-radius: 9px;
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: background 0.18s, transform 0.1s;
+    flex-shrink: 0;
+  }
+  .btn-dl:hover { background: #15803d; transform: translateY(-1px); }
+
+  /* ── NOTA INFORMATIVA ── */
+  .note {
+    background: #fefce8;
+    border: 1px solid #fde68a;
+    border-radius: 10px;
+    padding: 0.9rem 1.1rem;
+    font-size: 0.78rem;
+    color: #92400e;
+    line-height: 1.7;
+    display: flex;
+    gap: 0.65rem;
+  }
+  .note-icon { flex-shrink: 0; font-size: 0.9rem; }
+  .note strong { color: #78350f; }
+
+  @media (max-width: 600px) {
+    .field-row { grid-template-columns: 1fr; }
+    .hero { flex-direction: column; gap: 1rem; }
+    .stats { grid-template-columns: 1fr; }
+    .topbar-desc { display: none; }
+    .dl-wrap { flex-wrap: wrap; }
+    .btn-dl { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-logo">📡</div>
+  <span class="topbar-name">Radar Competidor</span>
+  <span class="topbar-sep">·</span>
+  <span class="topbar-desc">Análisis de competidores por sector</span>
+  <span class="topbar-badge">eleconomista.es</span>
+</div>
+
+<div class="page">
+
+  <div class="hero">
+    <div class="hero-icon">🏢</div>
+    <div>
+      <h1 class="hero-title">Genera tu lista de <strong>leads y competidores</strong></h1>
+      <p class="hero-body">
+        Introduce el código CNAE de tu sector y obtén un Excel con dos listas:
+        los <b>leads</b> (empresas medianas/pequeñas del sector, tus posibles clientes)
+        y sus <b>competidores más relevantes</b> (empresas más grandes de la misma zona),
+        junto con datos de crecimiento o decrecimiento en el ranking.
+      </p>
+      <div class="hero-pills">
+        <span class="pill">📊 Datos 2023</span>
+        <span class="pill">📍 Por provincia o nacional</span>
+        <span class="pill">🟢 Verde = crece · 🔴 Rojo = cae</span>
+        <span class="pill">4 hojas en el Excel</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat">
+      <div class="stat-val">500.000</div>
+      <div class="stat-lbl">Empresas en el ranking</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">4 hojas</div>
+      <div class="stat-lbl">Leads · Competidores · Análisis · Leyenda</div>
+    </div>
+    <div class="stat">
+      <div class="stat-val">3–20×</div>
+      <div class="stat-lbl">Ratio de tamaño ideal</div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div class="card-head-icon">🔍</div>
+      <span class="card-head-title">¿Qué sector quieres analizar?</span>
+      <span class="card-head-sub">Paso 1 de 1</span>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="cnae">Código CNAE <span class="req">*</span></label>
+        <input type="text" id="cnae" placeholder="Ej: 4662" maxlength="10" autocomplete="off">
+        <span class="err-msg" id="cnae-error">Introduce un código CNAE válido (3–5 dígitos)</span>
+      </div>
+      <div class="field">
+        <label for="provincia">Provincia <span class="field-hint">— dejar vacío para toda España</span></label>
+        <select id="provincia">
+          {% for p in provincias %}
+          <option value="{{ p }}">{{ p if p else "— Toda España —" }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div>
+      <p class="chips-label">No sabes el CNAE — haz clic en uno de estos ejemplos:</p>
+      <div class="chips">
+        <span class="chip" onclick="setChip('4662')">4662 · Máquinas herramienta</span>
+        <span class="chip" onclick="setChip('4120')">4120 · Construcción edificios</span>
+        <span class="chip" onclick="setChip('6201')">6201 · Programación informática</span>
+        <span class="chip" onclick="setChip('4941')">4941 · Transporte de mercancías</span>
+        <span class="chip" onclick="setChip('4311')">4311 · Demolición y preparación</span>
+        <span class="chip" onclick="setChip('7112')">7112 · Ingeniería y consultoría</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <button class="adv-toggle" id="adv-btn" onclick="toggleAdvanced()">
+      <span class="adv-caret">▼</span>
+      Opciones avanzadas (número de páginas, ratio de tamaño…)
+    </button>
+
+    <div class="adv-section" id="adv-section">
+      <div class="adv-inner">
+        <div class="field-row">
+          <div class="field">
+            <label for="n_comp">Páginas de competidores <span class="field-hint">25 empresas/pág</span></label>
+            <input type="number" id="n_comp" value="2" min="1" max="5">
+          </div>
+          <div class="field">
+            <label for="n_leads">Páginas de leads <span class="field-hint">25 empresas/pág</span></label>
+            <input type="number" id="n_leads" value="3" min="1" max="10">
+          </div>
+          <div class="field">
+            <label for="ratio_min">Competidor mínimo <span class="field-hint">× más grande que el lead</span></label>
+            <input type="number" id="ratio_min" value="3" min="1" max="100" step="0.5">
+          </div>
+          <div class="field">
+            <label for="ratio_max">Competidor máximo <span class="field-hint">× más grande</span></label>
+            <input type="number" id="ratio_max" value="20" min="2" max="500">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-run" id="btn-run" onclick="startJob()">
+      <span id="btn-icon">▶</span>
+      <span id="btn-text">Generar Excel ahora</span>
+    </button>
+  </div>
+
+  <div class="card" id="progress-card">
+    <div class="card-head">
+      <div class="card-head-icon">⏳</div>
+      <span class="card-head-title">Procesando datos…</span>
+    </div>
+    <div class="prog-header">
+      <div class="prog-spinner-wrap"><div class="spinner" id="spinner"></div></div>
+      <div class="prog-label" id="prog-label">Iniciando…</div>
+      <div class="prog-pct" id="prog-pct">0%</div>
+    </div>
+    <div class="prog-bar-bg">
+      <div class="prog-bar" id="prog-bar"></div>
+    </div>
+    <div class="steps">
+      <span class="step" id="sp0"><span class="dot"></span>Conexión</span>
+      <span class="step" id="sp1"><span class="dot"></span>Competidores</span>
+      <span class="step" id="sp2"><span class="dot"></span>Leads</span>
+      <span class="step" id="sp3"><span class="dot"></span>Cruce de datos</span>
+      <span class="step" id="sp4"><span class="dot"></span>Generando Excel</span>
+    </div>
+    <div style="font-size:0.76rem;color:#94a3b8;margin-top:0.7rem" id="status-msg"></div>
+  </div>
+
+  <div class="card" id="download-card">
+    <div class="dl-wrap">
+      <div class="dl-icon">📥</div>
+      <div>
+        <div class="dl-title">¡Excel listo para descargar!</div>
+        <div class="dl-sub" id="dl-subtitle">Procesado correctamente</div>
+        <div class="dl-sheets">
+          <span class="dl-sheet">Leads</span>
+          <span class="dl-sheet">Competidores</span>
+          <span class="dl-sheet">Resumen Lead vs Competidor</span>
+          <span class="dl-sheet">Leyenda</span>
+        </div>
+      </div>
+      <a id="dl-btn" class="btn-dl" href="#">⬇ Descargar Excel</a>
+    </div>
+  </div>
+
+  <div class="note">
+    <span class="note-icon">💡</span>
+    <div>
+      <strong>¿Cómo funciona?</strong>
+      La herramienta descarga el ranking de <em>ranking-empresas.eleconomista.es</em>
+      (datos 2023) filtrado por tu CNAE y provincia.
+      Las primeras páginas son los <strong>competidores</strong> (grandes del sector)
+      y las siguientes los <strong>leads</strong> (medianas y pequeñas — posibles clientes).
+      Para cada lead se asigna el competidor más parecido: misma provincia si es posible,
+      entre 3 y 20 veces más grande, y mejor posición en el ranking.
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let jobId = null, pollTimer = null;
+
+  function setChip(c) {
+    document.getElementById("cnae").value = c;
+    document.getElementById("cnae").classList.remove("error");
+    document.getElementById("cnae-error").classList.remove("show");
+  }
+
+  function toggleAdvanced() {
+    document.getElementById("adv-btn").classList.toggle("open");
+    document.getElementById("adv-section").classList.toggle("open");
+  }
+
+  function setStep(idx) {
+    for (let i = 0; i < 5; i++) {
+      const el = document.getElementById("sp" + i);
+      el.className = "step" + (i < idx ? " done" : i === idx ? " active" : "");
+    }
+  }
+
+  function startJob() {
+    const cnae = document.getElementById("cnae").value.trim();
+    if (!cnae || !/^\d{3,5}$/.test(cnae)) {
+      document.getElementById("cnae").classList.add("error");
+      document.getElementById("cnae-error").classList.add("show");
+      return;
+    }
+    document.getElementById("cnae").classList.remove("error");
+    document.getElementById("cnae-error").classList.remove("show");
+    const payload = {
+      cnae,
+      provincia: document.getElementById("provincia").value,
+      n_comp: document.getElementById("n_comp").value,
+      n_leads: document.getElementById("n_leads").value,
+      ratio_min: document.getElementById("ratio_min").value,
+      ratio_max: document.getElementById("ratio_max").value,
+      delay: 2.0,
+    };
+    document.getElementById("btn-run").disabled = true;
+    document.getElementById("btn-text").textContent = "Procesando…";
+    document.getElementById("btn-icon").textContent = "⏳";
+    document.getElementById("download-card").classList.remove("show");
+    document.getElementById("progress-card").classList.add("show");
+    document.getElementById("prog-bar").className = "prog-bar";
+    document.getElementById("prog-pct").className = "prog-pct";
+    document.getElementById("spinner").className = "spinner";
+    document.getElementById("status-msg").textContent = "";
+    setStep(0);
+    fetch("/start", { method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify(payload) })
+      .then(r => r.json())
+      .then(data => { if (data.error) { showError(data.error); return; } jobId = data.job_id; pollTimer = setInterval(pollStatus, 1200); })
+      .catch(() => showError("No se pudo conectar con el servidor."));
+  }
+
+  function pollStatus() {
+    if (!jobId) return;
+    fetch("/status/" + jobId).then(r => r.json()).then(data => {
+      document.getElementById("prog-label").textContent = data.message;
+      document.getElementById("prog-pct").textContent = data.progress + "%";
+      document.getElementById("prog-bar").style.width = data.progress + "%";
+      const p = data.progress;
+      if (p < 15) setStep(0); else if (p < 45) setStep(1); else if (p < 75) setStep(2); else if (p < 90) setStep(3); else setStep(4);
+      if (data.status === "done") { clearInterval(pollTimer); onDone(); }
+      else if (data.status === "error") { clearInterval(pollTimer); showError(data.message); }
+    }).catch(() => {});
+  }
+
+  function onDone() {
+    document.getElementById("spinner").className = "spinner done";
+    document.getElementById("prog-bar").style.width = "100%";
+    document.getElementById("prog-bar").classList.add("done");
+    document.getElementById("prog-pct").className = "prog-pct done";
+    setStep(5);
+    document.getElementById("btn-run").disabled = false;
+    document.getElementById("btn-text").textContent = "Nueva búsqueda";
+    document.getElementById("btn-icon").textContent = "▶";
+    document.getElementById("download-card").classList.add("show");
+    const cnae = document.getElementById("cnae").value;
+    const prov = document.getElementById("provincia").value;
+    document.getElementById("dl-subtitle").textContent = "CNAE " + cnae + (prov ? " · " + prov : " · España") + " — listo para abrir en Excel";
+    document.getElementById("dl-btn").href = "/download/" + jobId;
+  }
+
+  function showError(msg) {
+    document.getElementById("spinner").className = "spinner err";
+    document.getElementById("prog-bar").classList.add("err");
+    document.getElementById("prog-bar").style.width = "100%";
+    document.getElementById("prog-pct").className = "prog-pct err";
+    document.getElementById("prog-label").textContent = "Ha ocurrido un error";
+    document.getElementById("status-msg").textContent = msg;
+    document.getElementById("btn-run").disabled = false;
+    document.getElementById("btn-text").textContent = "Intentar de nuevo";
+    document.getElementById("btn-icon").textContent = "▶";
+  }
+</script>
+</body>
+</html>

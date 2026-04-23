@@ -1,0 +1,192 @@
+{% extends "base.html" %}
+{% block title %}Notificaciones — Radar CRM{% endblock %}
+
+{% block extra_css %}
+<style>
+  .notif-page-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 2px 4px -1px rgba(0,0,0,0.03);
+    overflow: hidden;
+    margin-top: 1rem;
+    border: 1px solid var(--border);
+  }
+  .notif-row {
+    display: flex;
+    gap: 1.2rem;
+    padding: 1.2rem 1.5rem;
+    border-bottom: 1px solid var(--border);
+    transition: all 0.2s ease;
+    align-items: flex-start;
+  }
+  .notif-row:hover {
+    background: #f8fafc;
+  }
+  .notif-row.unread {
+    background: rgba(220, 38, 38, 0.03); /* Sutil rojo para no leídas */
+    border-left: 4px solid var(--red-500);
+  }
+  .notif-row.unread:hover {
+    background: rgba(220, 38, 38, 0.06);
+  }
+  .notif-row:last-child {
+    border-bottom: none;
+  }
+  .n-icon-wrap {
+    width: 42px;
+    height: 42px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    flex-shrink: 0;
+  }
+  .bg-success { background: rgba(22,163,74,.15); color: #16a34a; }
+  .bg-chat    { background: rgba(236,72,153,.15); color: #ec4899; }
+  .bg-lead    { background: rgba(147,51,234,.15); color: #9333ea; }
+  .bg-warning { background: rgba(234,179,8,.15); color: #eab308; }
+  .bg-info    { background: rgba(59,130,246,.15); color: #3b82f6; }
+  
+  .n-content { flex: 1; }
+  .n-title {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--text);
+    margin-bottom: 0.2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .n-badge {
+    background: var(--red-500);
+    color: #fff;
+    font-size: 0.65rem;
+    padding: 0.1rem 0.4rem;
+    border-radius: 10px;
+    font-weight: bold;
+    letter-spacing: 0.5px;
+  }
+  .n-text {
+    color: var(--muted);
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+  .n-meta {
+    margin-top: 0.4rem;
+    font-size: 0.75rem;
+    color: var(--hint);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .n-action-btn {
+    background: none;
+    border: none;
+    color: var(--red-500);
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    transition: background 0.15s;
+  }
+  .n-action-btn:hover {
+    background: rgba(220, 38, 38, 0.1);
+  }
+  .empty-state {
+    padding: 4rem 2rem;
+    text-align: center;
+    color: var(--muted);
+  }
+  .empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+</style>
+{% endblock %}
+
+{% block topbar_title %}Centro de Notificaciones{% endblock %}
+{% block topbar_sub %}Tienes {{ notificaciones|selectattr("leida", "equalto", False)|list|length }} notificaciones sin leer{% endblock %}
+{% block topbar_right %}
+<button class="btn btn-outline" onclick="marcarPaginaLeidas()">
+  <span style="margin-right: 5px;">✓</span> Marcar todas leídas
+</button>
+{% endblock %}
+
+{% block content %}
+<div class="notif-page-card">
+  {% if not notificaciones %}
+  <div class="empty-state">
+    <div class="empty-state-icon">📭</div>
+    <h3>Todo al día</h3>
+    <p>No tienes ninguna notificación pendiente en este momento.</p>
+  </div>
+  {% else %}
+  
+  {% for n in notificaciones %}
+  <div class="notif-row {% if not n.leida %}unread{% endif %}" {% if n.url %}onclick="window.location.href='{{ n.url }}'" style="cursor:pointer"{% endif %}>
+    
+    <div class="n-icon-wrap 
+      {% if n.tipo=='success' %}bg-success
+      {% elif n.tipo=='chat' %}bg-chat
+      {% elif n.tipo=='lead' %}bg-lead
+      {% elif n.tipo=='warning' %}bg-warning
+      {% else %}bg-info{% endif %}">
+      {% if n.tipo=='success' %}✓
+      {% elif n.tipo=='chat' %}💬
+      {% elif n.tipo=='lead' %}🏢
+      {% elif n.tipo=='warning' %}!
+      {% else %}i{% endif %}
+    </div>
+    
+    <div class="n-content">
+      <div class="n-title">
+        {{ n.titulo }}
+        {% if not n.leida %}<span class="n-badge">NUEVO</span>{% endif %}
+      </div>
+      {% if n.texto %}
+      <div class="n-text">{{ n.texto }}</div>
+      {% endif %}
+      <div class="n-meta">
+        <span>🕒 {{ n.fecha|fmt_fecha }}</span>
+      </div>
+    </div>
+    
+    {% if not n.leida %}
+    <div>
+      <button class="n-action-btn" onclick="event.stopPropagation(); leerUna({{ n.id }})">Marcar leída</button>
+    </div>
+    {% endif %}
+    
+  </div>
+  {% endfor %}
+  
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function marcarPaginaLeidas() {
+  fetch('/api/notificaciones/leer', { method: 'POST' })
+    .then(r => r.json())
+    .then(res => {
+      if (res.ok) {
+        window.location.reload();
+      }
+    });
+}
+
+function leerUna(id) {
+  fetch(`/api/notificaciones/${id}/leer`, { method: 'POST' })
+    .then(r => r.json())
+    .then(res => {
+      if (res.ok) {
+        window.location.reload();
+      }
+    });
+}
+</script>
+{% endblock %}

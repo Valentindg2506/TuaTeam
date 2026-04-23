@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}Chat — Radar CRM{% endblock %}
+{% block topbar_title %}Chat{% endblock %}
+{% block topbar_sub %}Mensajería interna{% endblock %}
+
+{% block extra_css %}
+<style>
+.chat-layout{display:grid;grid-template-columns:260px 1fr;gap:0;height:calc(100vh - 120px);
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius-l);overflow:hidden}
+.conv-list{border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.conv-head{padding:.85rem 1rem;border-bottom:1px solid var(--border);font-weight:700;font-size:.88rem;flex-shrink:0}
+.conv-item{display:flex;align-items:center;gap:.65rem;padding:.75rem .9rem;cursor:pointer;
+  transition:background .15s;border-bottom:1px solid var(--border);text-decoration:none}
+.conv-item:hover{background:var(--bg3)}
+.conv-item.active{background:rgba(185,28,28,.12)}
+.conv-av{width:34px;height:34px;border-radius:50%;background:var(--red-800);
+  display:flex;align-items:center;justify-content:center;font-size:.78rem;font-weight:700;
+  color:var(--red-100);flex-shrink:0;position:relative}
+.conv-unread{position:absolute;top:-2px;right:-2px;width:12px;height:12px;
+  background:var(--red-500);border-radius:50%;border:2px solid var(--bg2)}
+.conv-name{font-size:.84rem;font-weight:600}
+.conv-last{font-size:.72rem;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:140px}
+.conv-time{font-size:.67rem;color:var(--hint);margin-left:auto;flex-shrink:0}
+.chat-main{display:flex;flex-direction:column;height:100%}
+.chat-topbar{padding:.8rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:.7rem;flex-shrink:0}
+.chat-msgs{flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:.6rem}
+.msg{display:flex;gap:.55rem;align-items:flex-end;max-width:70%}
+.msg.mio{align-self:flex-end;flex-direction:row-reverse}
+.msg-av{width:26px;height:26px;border-radius:50%;background:var(--red-800);
+  display:flex;align-items:center;justify-content:center;font-size:.65rem;font-weight:700;
+  color:var(--red-100);flex-shrink:0}
+.msg-bubble{padding:.6rem .85rem;border-radius:12px;font-size:.83rem;line-height:1.5;word-break:break-word}
+.msg .msg-bubble{background:var(--bg3);border:1px solid var(--border);border-bottom-left-radius:3px}
+.msg.mio .msg-bubble{background:var(--red-800);color:white;border:none;border-bottom-right-radius:3px}
+.msg-time{font-size:.65rem;color:var(--hint);margin-top:.2rem;white-space:nowrap}
+.msg.mio .msg-time{text-align:right}
+.chat-input{padding:.85rem 1rem;border-top:1px solid var(--border);display:flex;gap:.6rem;flex-shrink:0}
+.chat-input textarea{flex:1;background:var(--bg3);border:1px solid var(--border2);border-radius:9px;
+  color:var(--text);font-family:Inter,sans-serif;font-size:.88rem;padding:.55rem .85rem;
+  resize:none;min-height:42px;max-height:120px;transition:border-color .15s}
+.chat-input textarea:focus{outline:none;border-color:var(--red-600)}
+.chat-empty{display:flex;flex:1;align-items:center;justify-content:center;
+  flex-direction:column;gap:.5rem;color:var(--muted)}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="chat-layout">
+
+  <!-- Lista conversaciones -->
+  <div class="conv-list">
+    <div class="conv-head">💬 Conversaciones</div>
+    {% for conv in convs %}
+    <a href="{{ url_for('chat', con=conv.usuario.id) }}"
+       class="conv-item {% if interlocutor and interlocutor.id==conv.usuario.id %}active{% endif %}">
+      <div class="conv-av">
+        {{ conv.usuario.nombre[:2]|upper }}
+        {% if conv.no_leidos > 0 %}<div class="conv-unread"></div>{% endif %}
+      </div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:.3rem">
+          <span class="conv-name">{{ conv.usuario.nombre }}</span>
+          {% if conv.usuario.rol=='admin' %}<span class="badge badge-red" style="font-size:.6rem">A</span>
+          {% elif conv.usuario.rol=='supervisor' %}<span class="badge badge-blue" style="font-size:.6rem">S</span>
+          {% else %}<span class="badge badge-gray" style="font-size:.6rem">C</span>{% endif %}
+        </div>
+        {% if conv.ultimo %}
+        <div class="conv-last">{{ conv.ultimo.texto[:40] }}</div>
+        {% else %}
+        <div class="conv-last" style="font-style:italic">Sin mensajes</div>
+        {% endif %}
+      </div>
+      {% if conv.ultimo %}
+      <div class="conv-time">{{ conv.ultimo.fecha.strftime('%H:%M') }}</div>
+      {% endif %}
+    </a>
+    {% else %}
+    <div style="padding:2rem;text-align:center;color:var(--muted);font-size:.82rem">
+      No hay usuarios disponibles para chatear.
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Chat activo -->
+  {% if interlocutor %}
+  <div class="chat-main">
+    <div class="chat-topbar">
+      <div style="width:36px;height:36px;border-radius:50%;background:var(--red-800);
+                  display:flex;align-items:center;justify-content:center;font-weight:700;
+                  font-size:.78rem;color:var(--red-100)">
+        {{ interlocutor.nombre[:2]|upper }}
+      </div>
+      <div>
+        <div style="font-weight:700;font-size:.9rem">{{ interlocutor.nombre }}</div>
+        <div class="text-muted">{{ interlocutor.rol|capitalize }}</div>
+      </div>
+    </div>
+
+    <div class="chat-msgs" id="msgs">
+      {% for m in mensajes %}
+      <div class="msg {% if m.de_id==current_user.id %}mio{% endif %}" id="msg-{{m.id}}">
+        {% if m.de_id != current_user.id %}
+        <div class="msg-av">{{ m.de.nombre[:2]|upper }}</div>
+        {% endif %}
+        <div>
+          <div class="msg-bubble">{{ m.texto }}</div>
+          <div class="msg-time">{{ m.fecha.strftime('%H:%M') }}</div>
+        </div>
+      </div>
+      {% else %}
+      <div class="chat-empty">
+        <div style="font-size:2rem">👋</div>
+        <div>Comienza la conversación con {{ interlocutor.nombre }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="chat-input">
+      <textarea id="msg-input" rows="1" placeholder="Escribe un mensaje… (Enter para enviar)"></textarea>
+      <button class="btn btn-red" onclick="enviar()">→</button>
+    </div>
+  </div>
+
+  {% else %}
+  <div class="chat-empty">
+    <div style="font-size:3rem">💬</div>
+    <div style="font-size:.95rem;font-weight:600">Selecciona una conversación</div>
+    <div class="text-muted">Elige un usuario de la lista para empezar</div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if interlocutor %}
+<script>
+const PARA_ID = {{ interlocutor.id }};
+let lastId = {{ mensajes[-1].id if mensajes else 0 }};
+const msgs = document.getElementById('msgs');
+
+// Scroll al final al cargar
+msgs.scrollTop = msgs.scrollHeight;
+
+function enviar() {
+  const ta = document.getElementById('msg-input');
+  const txt = ta.value.trim();
+  if (!txt) return;
+  ta.value = '';
+  fetch('/chat/enviar', {method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({para_id: PARA_ID, texto: txt})
+  }).then(r=>r.json()).then(m => {
+    if (m.error) return;
+    agregarMsg(m); lastId = m.id;
+  });
+}
+
+function agregarMsg(m) {
+  // Quitar mensaje de "vacío" si existe
+  const vacío = msgs.querySelector('.chat-empty');
+  if (vacío) vacío.remove();
+
+  const div = document.createElement('div');
+  div.className = 'msg ' + (m.mio ? 'mio' : '');
+  div.id = 'msg-' + m.id;
+  div.innerHTML = (!m.mio ? `<div class="msg-av">${m.de.substring(0,2).toUpperCase()}</div>` : '')
+    + `<div><div class="msg-bubble">${m.texto}</div><div class="msg-time">${m.fecha}</div></div>`;
+  msgs.appendChild(div);
+  msgs.scrollTop = msgs.scrollHeight;
+}
+
+// Polling mensajes nuevos cada 3s
+setInterval(() => {
+  fetch(`/chat/mensajes/${PARA_ID}?desde_id=${lastId}`)
+    .then(r=>r.json()).then(lista => {
+      lista.forEach(m => {
+        if (!document.getElementById('msg-'+m.id)) {
+          agregarMsg(m); lastId = Math.max(lastId, m.id);
+        }
+      });
+    }).catch(()=>{});
+}, 3000);
+
+document.getElementById('msg-input').addEventListener('keydown', e => {
+  if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); enviar(); }
+});
+</script>
+{% endif %}
+{% endblock %}

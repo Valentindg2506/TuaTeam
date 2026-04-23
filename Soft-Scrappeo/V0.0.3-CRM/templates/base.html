@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Radar CRM{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --red-950: #2d0505;
+    --red-900: #450a0a;
+    --red-800: #7f1d1d;
+    --red-700: #991b1b;
+    --red-600: #b91c1c;
+    --red-500: #dc2626;
+    --red-400: #ef4444;
+    --red-100: #fee2e2;
+    --red-50:  #fef2f2;
+
+    --bg:      #0f0f0f;
+    --bg2:     #1a1a1a;
+    --bg3:     #222222;
+    --border:  #2e2e2e;
+    --border2: #3a3a3a;
+    --text:    #f0f0f0;
+    --muted:   #888888;
+    --hint:    #555555;
+
+    --success: #16a34a;
+    --warning: #d97706;
+    --info:    #0284c7;
+
+    --radius:  8px;
+    --radius-l:12px;
+    --sidebar-w: 240px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    display: flex;
+    min-height: 100vh;
+    font-size: 14px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: var(--sidebar-w);
+    background: var(--bg2);
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    z-index: 100;
+    overflow-y: auto;
+  }
+
+  .sidebar-logo {
+    padding: 1.2rem 1.4rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .logo-icon {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, var(--red-700), var(--red-500));
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(220,38,38,0.3);
+  }
+  .logo-text {
+    font-size: 1.05rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+  .logo-sub {
+    font-size: 0.65rem;
+    color: var(--red-400);
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .sidebar-section {
+    padding: 0.6rem 0.8rem 0.2rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--hint);
+    margin-top: 0.6rem;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.55rem 1rem;
+    margin: 1px 0.5rem;
+    border-radius: var(--radius);
+    color: var(--muted);
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.88rem;
+    transition: all 0.15s;
+  }
+  .nav-item:hover {
+    background: var(--bg3);
+    color: var(--text);
+  }
+  .nav-item.active {
+    background: rgba(185,28,28,0.15);
+    color: var(--red-400);
+  }
+  .nav-item .icon {
+    width: 18px;
+    text-align: center;
+    font-size: 1rem;
+  }
+
+  .sidebar-user {
+    margin-top: auto;
+    padding: 1rem;
+    border-top: 1px solid var(--border);
+  }
+  .user-card {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem;
+    border-radius: var(--radius);
+    background: var(--bg3);
+  }
+  .user-avatar {
+    width: 32px; height: 32px;
+    background: var(--red-800);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--red-100);
+    flex-shrink: 0;
+  }
+  .user-name  { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+  .user-role  { font-size: 0.7rem; color: var(--muted); }
+  .user-logout {
+    margin-left: auto;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: 1rem;
+    transition: color 0.15s;
+  }
+  .user-logout:hover { color: var(--red-400); }
+
+  /* ── Main ── */
+  .main {
+    margin-left: var(--sidebar-w);
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .topbar {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    height: 56px;
+    display: flex;
+    align-items: center;
+    padding: 0 1.8rem;
+    gap: 1rem;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+  }
+  .topbar-title {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+  .topbar-sub {
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; }
+
+  .content { padding: 1.8rem; flex: 1; }
+
+  /* ── Alertas flash ── */
+  .flash-container {
+    padding: 0 1.8rem;
+    padding-top: 0.8rem;
+  }
+  .alert {
+    padding: 0.75rem 1rem;
+    border-radius: var(--radius);
+    font-size: 0.85rem;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    border: 1px solid;
+  }
+  .alert-success { background: #052e16; border-color: #166534; color: #86efac; }
+  .alert-error   { background: #2d0505; border-color: var(--red-800); color: var(--red-400); }
+  .alert-info    { background: #0c1a2e; border-color: #1e40af; color: #93c5fd; }
+
+  /* ── Cards ── */
+  .card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-l);
+    padding: 1.4rem;
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.2rem;
+    padding-bottom: 0.9rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text);
+  }
+
+  /* ── Stat cards ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-l);
+    padding: 1.2rem 1.4rem;
+  }
+  .stat-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    margin-bottom: 0.4rem;
+  }
+  .stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text);
+  }
+  .stat-value.red  { color: var(--red-400); }
+  .stat-value.green{ color: #4ade80; }
+
+  /* ── Botones ── */
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    text-decoration: none;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .btn-red {
+    background: var(--red-700);
+    color: white;
+  }
+  .btn-red:hover { background: var(--red-600); }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border2);
+  }
+  .btn-outline:hover { background: var(--bg3); color: var(--text); }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    padding: 0.4rem 0.7rem;
+  }
+  .btn-ghost:hover { color: var(--text); }
+
+  .btn-success {
+    background: #166534;
+    color: white;
+  }
+  .btn-success:hover { background: #15803d; }
+
+  .btn-sm { padding: 0.35rem 0.7rem; font-size: 0.76rem; }
+
+  /* ── Tablas ── */
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  th {
+    background: var(--bg3);
+    color: var(--muted);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 0.7rem 0.9rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 0.7rem 0.9rem;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.83rem;
+    color: var(--text);
+    vertical-align: middle;
+  }
+  tr:hover td { background: var(--bg3); }
+  tr:last-child td { border-bottom: none; }
+
+  /* ── Formularios ── */
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .form-group.full { grid-column: 1 / -1; }
+  .form-label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.04em;
+  }
+  .form-input, .form-select, .form-textarea {
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.88rem;
+    padding: 0.55rem 0.8rem;
+    width: 100%;
+    transition: border-color 0.15s;
+  }
+  .form-input:focus, .form-select:focus, .form-textarea:focus {
+    outline: none;
+    border-color: var(--red-600);
+  }
+  .form-select { cursor: pointer; }
+  .form-textarea { resize: vertical; min-height: 80px; }
+
+  /* ── Badges ── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.2rem 0.55rem;
+    border-radius: 99px;
+    font-size: 0.7rem;
+    font-weight: 600;
+  }
+  .badge-red     { background: rgba(185,28,28,0.2);  color: var(--red-400); }
+  .badge-green   { background: rgba(22,163,74,0.2);  color: #4ade80; }
+  .badge-yellow  { background: rgba(234,179,8,0.2);  color: #facc15; }
+  .badge-blue    { background: rgba(37,99,235,0.2);  color: #60a5fa; }
+  .badge-purple  { background: rgba(147,51,234,0.2); color: #c084fc; }
+  .badge-gray    { background: rgba(100,116,139,0.2);color: #94a3b8; }
+  .badge-pink    { background: rgba(236,72,153,0.2); color: #f472b6; }
+  .badge-orange  { background: rgba(249,115,22,0.2); color: #fb923c; }
+
+  /* ── Modal ── */
+  .modal-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .modal-overlay.show { display: flex; }
+  .modal {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-l);
+    padding: 1.8rem;
+    width: 100%;
+    max-width: 520px;
+    position: relative;
+  }
+  .modal-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 1.2rem;
+    padding-bottom: 0.8rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .modal-close {
+    position: absolute;
+    top: 1.2rem; right: 1.2rem;
+    background: none;
+    border: none;
+    color: var(--muted);
+    font-size: 1.1rem;
+    cursor: pointer;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  /* ── Tendencia ── */
+  .tend-sube  { color: #4ade80; font-weight: 600; }
+  .tend-baja  { color: var(--red-400); font-weight: 600; }
+  .tend-igual { color: var(--muted); }
+
+  /* ── Licita ── */
+  .licita-si { color: #4ade80; font-weight: 600; }
+  .licita-no { color: var(--red-400); }
+  .licita-nd { color: var(--muted); }
+
+  /* ── Util ── */
+  .flex { display: flex; }
+  .gap-1 { gap: 0.5rem; }
+  .gap-2 { gap: 1rem; }
+  .items-center { align-items: center; }
+  .justify-between { justify-content: space-between; }
+  .mt-1 { margin-top: 0.5rem; }
+  .mt-2 { margin-top: 1rem; }
+  .mb-1 { margin-bottom: 0.5rem; }
+  .mb-2 { margin-bottom: 1rem; }
+  .text-muted { color: var(--muted); font-size: 0.8rem; }
+  .text-red { color: var(--red-400); }
+  .text-sm { font-size: 0.8rem; }
+  .w-full { width: 100%; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+  @media (max-width: 768px) {
+    .sidebar { transform: translateX(-100%); }
+    .main { margin-left: 0; }
+    .form-row { grid-template-columns: 1fr; }
+  }
+</style>
+{% block extra_css %}{% endblock %}
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">📡</div>
+    <div>
+      <div class="logo-text">Radar CRM</div>
+      <div class="logo-sub">{{ current_user.rol }}</div>
+    </div>
+  </div>
+
+  {% if current_user.es_admin %}
+  <div class="sidebar-section">Admin</div>
+  <a href="{{ url_for('admin_dashboard') }}"
+     class="nav-item {% if request.endpoint == 'admin_dashboard' %}active{% endif %}">
+    <span class="icon">📊</span> Dashboard
+  </a>
+  <a href="{{ url_for('admin_usuarios') }}"
+     class="nav-item {% if request.endpoint == 'admin_usuarios' %}active{% endif %}">
+    <span class="icon">👥</span> Usuarios
+  </a>
+  <a href="{{ url_for('admin_asignaciones') }}"
+     class="nav-item {% if request.endpoint == 'admin_asignaciones' %}active{% endif %}">
+    <span class="icon">📋</span> Asignaciones
+  </a>
+  <a href="{{ url_for('supervisor_dashboard') }}"
+     class="nav-item {% if request.endpoint == 'supervisor_dashboard' %}active{% endif %}">
+    <span class="icon">🔍</span> Supervisión
+  </a>
+  <a href="{{ url_for('admin_export_leads') }}"
+     class="nav-item">
+    <span class="icon">📥</span> Exportar Excel
+  </a>
+  {% endif %}
+
+  {% if current_user.es_supervisor %}
+  <div class="sidebar-section">Supervisor</div>
+  <a href="{{ url_for('supervisor_dashboard') }}"
+     class="nav-item {% if request.endpoint == 'supervisor_dashboard' %}active{% endif %}">
+    <span class="icon">📊</span> Control equipo
+  </a>
+  {% endif %}
+
+  {% if current_user.es_comercial or current_user.es_admin or current_user.es_supervisor %}
+  <div class="sidebar-section">Comercial</div>
+  <a href="{{ url_for('comercial_kanban') }}"
+     class="nav-item {% if request.endpoint == 'comercial_kanban' %}active{% endif %}">
+    <span class="icon">🗂️</span> Mis Leads (Kanban)
+  </a>
+  {% endif %}
+
+  <div class="sidebar-user">
+    <div class="user-card">
+      <div class="user-avatar">
+        {{ current_user.nombre[:2]|upper }}
+      </div>
+      <div>
+        <div class="user-name">{{ current_user.nombre }}</div>
+        <div class="user-role">{{ current_user.rol|capitalize }}</div>
+      </div>
+      <a href="{{ url_for('logout') }}" class="user-logout" title="Cerrar sesión">⏻</a>
+    </div>
+  </div>
+</aside>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div>
+      <div class="topbar-title">{% block topbar_title %}{% endblock %}</div>
+      <div class="topbar-sub">{% block topbar_sub %}{% endblock %}</div>
+    </div>
+    <div class="topbar-right">{% block topbar_right %}{% endblock %}</div>
+  </div>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-container">
+      {% for cat, msg in messages %}
+      <div class="alert alert-{{ cat }}">
+        {% if cat == 'success' %}✓{% elif cat == 'error' %}✗{% else %}ℹ{% endif %}
+        {{ msg }}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endwith %}
+
+  <div class="content">
+    {% block content %}{% endblock %}
+  </div>
+</div>
+
+{% block extra_js %}{% endblock %}
+</body>
+</html>

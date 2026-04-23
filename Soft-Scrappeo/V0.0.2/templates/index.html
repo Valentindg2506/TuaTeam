@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Radar Competidor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:       #f6f8f7;
+    --card:     #ffffff;
+    --border:   #e1e6e4;
+    --text:     #1a2b22;
+    --muted:    #6b7c75;
+    --hint:     #9da9a4;
+    --primary:  #146c43;
+    --primary-d:#0d4225;
+    --primary-l:#e8f4ee;
+    --accent:   #c89b3c;
+    --success:  #16a34a;
+    --danger:   #dc2626;
+    --radius:   10px;
+    --radius-l: 14px;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Cabecera ── */
+  .topbar {
+    background: var(--primary-d);
+    color: white;
+    padding: 0 2rem;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.1);
+  }
+  .logo {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, var(--primary), #2cae70);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1rem;
+  }
+  .brand { font-size: 1rem; font-weight: 700; letter-spacing: -0.01em; }
+  .subtle { font-size: 0.82rem; color: rgba(255,255,255,0.65); font-weight: 400; }
+  .topbar .sep { color: rgba(255,255,255,0.3); }
+
+  /* ── Contenedor ── */
+  .container {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* ── Hero ── */
+  .hero {
+    margin-bottom: 2rem;
+  }
+  .hero h1 {
+    font-size: 1.7rem;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.2;
+    margin-bottom: 0.5rem;
+  }
+  .hero h1 span { color: var(--primary); }
+  .hero p {
+    color: var(--muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    max-width: 620px;
+  }
+
+  /* ── Card ── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-l);
+    padding: 1.8rem 2rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .card-head-num {
+    width: 26px; height: 26px;
+    background: var(--primary);
+    color: white;
+    border-radius: 7px;
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700;
+    font-size: 0.82rem;
+  }
+  .card-head-title {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .card-head-sub {
+    font-size: 0.82rem;
+    color: var(--muted);
+    margin-left: auto;
+  }
+
+  /* ── Form ── */
+  .field-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.2rem;
+  }
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+  .field.wide { grid-column: 1 / -1; }
+
+  label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text);
+  }
+  label .req { color: var(--danger); margin-left: 2px; }
+  .hint {
+    font-size: 0.75rem;
+    color: var(--hint);
+    font-weight: 400;
+    margin-left: 4px;
+  }
+
+  input[type="text"], input[type="number"], select {
+    width: 100%;
+    height: 42px;
+    padding: 0 0.9rem;
+    background: white;
+    border: 1.5px solid var(--border);
+    border-radius: var(--radius);
+    font-family: 'Inter', sans-serif;
+    font-size: 0.92rem;
+    color: var(--text);
+    transition: all 0.15s;
+    appearance: none;
+    -webkit-appearance: none;
+  }
+  select {
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7c75' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.9rem center;
+    padding-right: 2.4rem;
+  }
+  input::placeholder { color: var(--hint); }
+  input:focus, select:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(20,108,67,0.1);
+  }
+  input.error {
+    border-color: var(--danger);
+    background: #fff5f5;
+  }
+
+  .err-msg {
+    font-size: 0.75rem;
+    color: var(--danger);
+    margin-top: -0.4rem;
+    display: none;
+  }
+  .err-msg.show { display: block; }
+
+  /* ── Chips de CNAE ── */
+  .chips-hint {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+  .chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+  }
+  .chip {
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+    border-radius: 999px;
+    padding: 0.3rem 0.75rem;
+    font-size: 0.78rem;
+    color: var(--text);
+    font-weight: 500;
+    cursor: pointer;
+    font-family: 'Inter', sans-serif;
+    transition: all 0.15s;
+  }
+  .chip:hover {
+    background: var(--primary-l);
+    border-color: var(--primary);
+    color: var(--primary-d);
+  }
+  .chip strong { color: var(--primary); font-weight: 700; }
+
+  /* ── Separador + avanzado ── */
+  .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 1.4rem 0;
+  }
+
+  .adv-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    border: none;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.82rem;
+    color: var(--muted);
+    cursor: pointer;
+    font-weight: 500;
+    padding: 0;
+  }
+  .adv-btn:hover { color: var(--primary); }
+  .adv-caret {
+    width: 16px; height: 16px;
+    background: var(--border);
+    border-radius: 4px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.55rem;
+    transition: transform 0.25s, background 0.15s;
+  }
+  .adv-btn.open .adv-caret {
+    transform: rotate(180deg);
+    background: var(--primary);
+    color: white;
+  }
+  .adv-section {
+    overflow: hidden;
+    max-height: 0;
+    transition: max-height 0.3s ease;
+  }
+  .adv-section.open { max-height: 260px; }
+  .adv-inner { padding-top: 1.2rem; }
+
+  /* ── Botón principal ── */
+  .btn-primary {
+    width: 100%;
+    height: 48px;
+    background: var(--primary);
+    color: white;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.95rem;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    margin-top: 1.5rem;
+    transition: all 0.15s;
+    box-shadow: 0 2px 6px rgba(20,108,67,0.2);
+  }
+  .btn-primary:hover {
+    background: var(--primary-d);
+    box-shadow: 0 4px 12px rgba(20,108,67,0.3);
+  }
+  .btn-primary:disabled {
+    background: var(--hint);
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  /* ── Progreso ── */
+  #progress-card { display: none; }
+  #progress-card.show { display: block; }
+
+  .prog-top {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    margin-bottom: 0.9rem;
+  }
+  .prog-icon {
+    width: 38px; height: 38px;
+    background: var(--primary-l);
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .spinner {
+    width: 16px; height: 16px;
+    border: 2px solid rgba(20,108,67,0.2);
+    border-top-color: var(--primary);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spinner.done {
+    border-color: rgba(22,163,74,0.2);
+    border-top-color: var(--success);
+    animation: none;
+  }
+  .spinner.err {
+    border-color: rgba(220,38,38,0.2);
+    border-top-color: var(--danger);
+    animation: none;
+  }
+
+  .prog-label {
+    flex: 1;
+    font-size: 0.88rem;
+    color: var(--text);
+    font-weight: 500;
+  }
+  .prog-pct {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--primary);
+    min-width: 46px;
+    text-align: right;
+  }
+  .prog-pct.done { color: var(--success); }
+  .prog-pct.err  { color: var(--danger); }
+
+  .prog-bar-bg {
+    height: 6px;
+    background: var(--bg);
+    border-radius: 99px;
+    overflow: hidden;
+  }
+  .prog-bar {
+    height: 100%;
+    background: var(--primary);
+    border-radius: 99px;
+    width: 0%;
+    transition: width 0.4s ease;
+  }
+  .prog-bar.done { background: var(--success); }
+  .prog-bar.err  { background: var(--danger); }
+
+  .prog-msg {
+    font-size: 0.8rem;
+    color: var(--muted);
+    margin-top: 0.7rem;
+    min-height: 1em;
+  }
+
+  /* ── Descarga ── */
+  #download-card { display: none; }
+  #download-card.show { display: block; }
+
+  .dl-card {
+    background: linear-gradient(135deg, #f0fdf4 0%, #e0f7e8 100%);
+    border: 1.5px solid #a8d5bc;
+    border-radius: var(--radius-l);
+    padding: 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+  }
+  .dl-icon {
+    width: 50px; height: 50px;
+    background: var(--success);
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+    color: white;
+    font-size: 1.4rem;
+  }
+  .dl-info h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #14532d;
+    margin-bottom: 0.2rem;
+  }
+  .dl-info p {
+    font-size: 0.82rem;
+    color: #166534;
+  }
+  .btn-download {
+    margin-left: auto;
+    padding: 0.65rem 1.3rem;
+    background: var(--success);
+    color: white;
+    font-family: 'Inter', sans-serif;
+    font-size: 0.88rem;
+    font-weight: 600;
+    border: none;
+    border-radius: var(--radius);
+    cursor: pointer;
+    text-decoration: none;
+    white-space: nowrap;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.15s;
+    box-shadow: 0 2px 6px rgba(22,163,74,0.25);
+    flex-shrink: 0;
+  }
+  .btn-download:hover {
+    background: #15803d;
+    box-shadow: 0 4px 12px rgba(22,163,74,0.35);
+  }
+
+  /* ── Info footer ── */
+  .info-box {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1rem 1.2rem;
+    font-size: 0.82rem;
+    color: var(--muted);
+    line-height: 1.65;
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 0.4rem;
+  }
+  .info-box strong { color: var(--text); }
+  .info-icon {
+    color: var(--accent);
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+
+  @media (max-width: 600px) {
+    .field-row { grid-template-columns: 1fr; }
+    .topbar { padding: 0 1rem; }
+    .topbar .subtle { display: none; }
+    .dl-card { flex-wrap: wrap; }
+    .btn-download { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Cabecera -->
+<div class="topbar">
+  <div class="logo">📡</div>
+  <span class="brand">Radar Competidor</span>
+  <span class="sep">·</span>
+  <span class="subtle">Análisis de sector CNAE desde el Ranking Nacional</span>
+</div>
+
+<div class="container">
+
+  <!-- Hero -->
+  <div class="hero">
+    <h1>Descubre <span>leads y competidores</span> de cualquier sector</h1>
+    <p>
+      Introduce un código CNAE y obtén un Excel con dos listas: los
+      <strong>leads</strong> (medianas empresas del sector — tus posibles clientes)
+      junto a sus <strong>3 competidores más relevantes</strong> (empresas grandes
+      del mismo sector y zona).
+    </p>
+  </div>
+
+  <!-- Formulario -->
+  <div class="card">
+    <div class="card-head">
+      <span class="card-head-num">1</span>
+      <span class="card-head-title">¿Qué sector analizamos?</span>
+      <span class="card-head-sub">Paso 1 de 1</span>
+    </div>
+
+    <div class="field-row">
+      <div class="field">
+        <label for="cnae">Código CNAE <span class="req">*</span></label>
+        <input type="text" id="cnae" placeholder="Ej: 4662" maxlength="6" autocomplete="off" inputmode="numeric">
+        <span class="err-msg" id="cnae-err">Introduce un CNAE válido (3–5 dígitos)</span>
+      </div>
+      <div class="field">
+        <label for="provincia">Provincia <span class="hint">— vacío = toda España</span></label>
+        <select id="provincia">
+          {% for p in provincias %}
+          <option value="{{ p }}">{{ p if p else "— Toda España —" }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="field wide">
+      <p class="chips-hint">¿No conoces el CNAE? Prueba con estos ejemplos:</p>
+      <div class="chips">
+        <span class="chip" onclick="setCnae('4662')"><strong>4662</strong> Máquinas herramienta</span>
+        <span class="chip" onclick="setCnae('4120')"><strong>4120</strong> Construcción edificios</span>
+        <span class="chip" onclick="setCnae('6201')"><strong>6201</strong> Programación informática</span>
+        <span class="chip" onclick="setCnae('4941')"><strong>4941</strong> Transporte mercancías</span>
+        <span class="chip" onclick="setCnae('7112')"><strong>7112</strong> Ingeniería y consultoría</span>
+        <span class="chip" onclick="setCnae('4311')"><strong>4311</strong> Demolición</span>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <button class="adv-btn" id="adv-btn" onclick="toggleAdv()">
+      <span class="adv-caret">▼</span>
+      Opciones avanzadas
+    </button>
+
+    <div class="adv-section" id="adv-section">
+      <div class="adv-inner">
+        <div class="field-row">
+          <div class="field">
+            <label for="paginas">Páginas a descargar <span class="hint">100 empresas/pág</span></label>
+            <input type="number" id="paginas" value="3" min="1" max="10">
+          </div>
+          <div class="field">
+            <label for="ratio_min">Ratio mínimo <span class="hint">× competidor/lead</span></label>
+            <input type="number" id="ratio_min" value="3" min="1" max="50" step="0.5">
+          </div>
+          <div class="field">
+            <label for="ratio_max">Ratio máximo</label>
+            <input type="number" id="ratio_max" value="20" min="2" max="500">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn-primary" id="btn-run" onclick="startJob()">
+      <span id="btn-icon">▶</span>
+      <span id="btn-text">Generar análisis</span>
+    </button>
+  </div>
+
+  <!-- Progreso -->
+  <div class="card" id="progress-card">
+    <div class="card-head">
+      <span class="card-head-num">2</span>
+      <span class="card-head-title">Procesando…</span>
+    </div>
+    <div class="prog-top">
+      <div class="prog-icon"><div class="spinner" id="spinner"></div></div>
+      <div class="prog-label" id="prog-label">Iniciando…</div>
+      <div class="prog-pct" id="prog-pct">0%</div>
+    </div>
+    <div class="prog-bar-bg"><div class="prog-bar" id="prog-bar"></div></div>
+    <div class="prog-msg" id="prog-msg"></div>
+  </div>
+
+  <!-- Descarga -->
+  <div class="card" id="download-card">
+    <div class="dl-card">
+      <div class="dl-icon">✓</div>
+      <div class="dl-info">
+        <h3>¡Análisis listo!</h3>
+        <p id="dl-sub">Excel con 3 hojas: Leads, Competidores y Leyenda</p>
+      </div>
+      <a id="dl-btn" class="btn-download" href="#">📥 Descargar Excel</a>
+    </div>
+  </div>
+
+  <!-- Info -->
+  <div class="info-box">
+    <span class="info-icon">ℹ</span>
+    <div>
+      Los datos provienen de <strong>ranking-empresas.eleconomista.es</strong>
+      (fuente: eInforma / INFORMA D&B, ejercicio 2023). La búsqueda puede tardar
+      hasta 30 segundos según el número de páginas solicitadas.
+    </div>
+  </div>
+
+</div>
+
+<script>
+  let jobId = null;
+  let pollTimer = null;
+
+  function setCnae(c) {
+    document.getElementById("cnae").value = c;
+    document.getElementById("cnae").classList.remove("error");
+    document.getElementById("cnae-err").classList.remove("show");
+  }
+
+  function toggleAdv() {
+    document.getElementById("adv-btn").classList.toggle("open");
+    document.getElementById("adv-section").classList.toggle("open");
+  }
+
+  function startJob() {
+    const cnae = document.getElementById("cnae").value.trim();
+    if (!cnae || !/^\d{3,5}$/.test(cnae)) {
+      document.getElementById("cnae").classList.add("error");
+      document.getElementById("cnae-err").classList.add("show");
+      return;
+    }
+
+    const payload = {
+      cnae: cnae,
+      provincia: document.getElementById("provincia").value,
+      paginas:   parseInt(document.getElementById("paginas").value) || 3,
+      ratio_min: parseFloat(document.getElementById("ratio_min").value) || 3,
+      ratio_max: parseFloat(document.getElementById("ratio_max").value) || 20,
+    };
+
+    // UI
+    document.getElementById("btn-run").disabled = true;
+    document.getElementById("btn-text").textContent = "Procesando…";
+    document.getElementById("btn-icon").textContent = "⏳";
+    document.getElementById("download-card").classList.remove("show");
+    document.getElementById("progress-card").classList.add("show");
+
+    // Reset estilos
+    document.getElementById("prog-bar").className = "prog-bar";
+    document.getElementById("prog-pct").className = "prog-pct";
+    document.getElementById("spinner").className = "spinner";
+    document.getElementById("prog-msg").textContent = "";
+
+    fetch("/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then((r) => r.json())
+      .then((data) => {
+        if (data.error) {
+          showErr(data.error);
+          return;
+        }
+        jobId = data.job_id;
+        pollTimer = setInterval(poll, 1200);
+      })
+      .catch(() => showErr("No se pudo conectar con el servidor."));
+  }
+
+  function poll() {
+    if (!jobId) return;
+    fetch("/status/" + jobId)
+      .then((r) => r.json())
+      .then((data) => {
+        document.getElementById("prog-label").textContent = data.message;
+        document.getElementById("prog-pct").textContent = data.progress + "%";
+        document.getElementById("prog-bar").style.width = data.progress + "%";
+
+        if (data.status === "done") {
+          clearInterval(pollTimer);
+          onDone();
+        } else if (data.status === "error") {
+          clearInterval(pollTimer);
+          showErr(data.message);
+        }
+      })
+      .catch(() => {});
+  }
+
+  function onDone() {
+    document.getElementById("spinner").className = "spinner done";
+    document.getElementById("prog-bar").classList.add("done");
+    document.getElementById("prog-bar").style.width = "100%";
+    document.getElementById("prog-pct").className = "prog-pct done";
+
+    document.getElementById("btn-run").disabled = false;
+    document.getElementById("btn-text").textContent = "Nueva búsqueda";
+    document.getElementById("btn-icon").textContent = "↻";
+
+    const cnae = document.getElementById("cnae").value;
+    const prov = document.getElementById("provincia").value;
+    document.getElementById("dl-sub").textContent =
+      "CNAE " + cnae + " · " + (prov || "Toda España") + " — Excel con 3 hojas";
+
+    document.getElementById("dl-btn").href = "/download/" + jobId;
+    document.getElementById("download-card").classList.add("show");
+  }
+
+  function showErr(msg) {
+    document.getElementById("spinner").className = "spinner err";
+    document.getElementById("prog-bar").classList.add("err");
+    document.getElementById("prog-bar").style.width = "100%";
+    document.getElementById("prog-pct").className = "prog-pct err";
+    document.getElementById("prog-label").textContent = "Error";
+    document.getElementById("prog-msg").textContent = msg;
+
+    document.getElementById("btn-run").disabled = false;
+    document.getElementById("btn-text").textContent = "Intentar de nuevo";
+    document.getElementById("btn-icon").textContent = "↻";
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% block title %}Dashboard Admin — Radar CRM{% endblock %}
+{% block topbar_title %}Dashboard{% endblock %}
+{% block topbar_sub %}Vista general del sistema{% endblock %}
+
+{% block topbar_right %}
+<button class="btn btn-primary" id="btn-re-enriquecer-todos" onclick="reEnriquecerTodos()">
+  <span style="margin-right: 5px;">⚡</span> Re-enriquecer faltantes
+</button>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.dash-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.4rem; }
+.stat-card-big { background: var(--bg2); border: 1px solid var(--border); border-radius: var(--radius-l); padding: 1.2rem 1.4rem; display: flex; align-items: center; gap: 1rem; }
+.stat-icon { width: 44px; height: 44px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.3rem; flex-shrink: 0; }
+.stat-icon.red   { background: rgba(185,28,28,.15); }
+.stat-icon.blue  { background: rgba(37,99,235,.15); }
+.stat-icon.green { background: rgba(22,163,74,.15); }
+.stat-icon.purple{ background: rgba(147,51,234,.15); }
+.stat-info { flex: 1; min-width: 0; }
+.stat-num { font-size: 2rem; font-weight: 800; line-height: 1; color: var(--text); }
+.stat-num.red    { color: var(--red-400); }
+.stat-num.green  { color: #4ade80; }
+.stat-num.blue   { color: #60a5fa; }
+.stat-num.purple { color: #c084fc; }
+.stat-desc { font-size: .7rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-top: .2rem; }
+.pipeline-bar { display: flex; height: 8px; border-radius: 99px; overflow: hidden; gap: 2px; margin-top: .6rem; }
+.pipe-seg { height: 100%; border-radius: 99px; transition: width .5s ease; }
+.pipe-legend { display: flex; flex-wrap: wrap; gap: .4rem .9rem; margin-top: .6rem; }
+.pipe-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; margin-top: 3px; }
+.pipe-lbl { font-size: .7rem; color: var(--muted); display: flex; align-items: center; gap: .3rem; }
+.pipe-val { font-weight: 700; color: var(--text); }
+.progress-bar-wrap { background: var(--bg3); border-radius: 99px; height: 5px; overflow: hidden; margin-top: .3rem; }
+.progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--red-700), var(--red-400)); border-radius: 99px; transition: width .6s ease; }
+.spin { animation: spin 1s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- ── Stats Row ── -->
+<div class="stats-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:1.2rem">
+  <div class="stat-card-big">
+    <div class="stat-icon red">🎯</div>
+    <div class="stat-info">
+      <div class="stat-num red" id="st-leads">{{ total_leads }}</div>
+      <div class="stat-desc">Total Leads</div>
+    </div>
+  </div>
+  <div class="stat-card-big">
+    <div class="stat-icon blue">📋</div>
+    <div class="stat-info">
+      <div class="stat-num blue" id="st-asigns">{{ total_asigns }}</div>
+      <div class="stat-desc">Asignaciones</div>
+    </div>
+  </div>
+  <div class="stat-card-big">
+    <div class="stat-icon green">👤</div>
+    <div class="stat-info">
+      <div class="stat-num green" id="st-com">{{ total_comerciales }}</div>
+      <div class="stat-desc">Comerciales Activos</div>
+    </div>
+  </div>
+  <div class="stat-card-big">
+    <div class="stat-icon purple">👥</div>
+    <div class="stat-info">
+      <div class="stat-num purple" id="st-usr">{{ total_usuarios }}</div>
+      <div class="stat-desc">Usuarios Totales</div>
+    </div>
+  </div>
+</div>
+
+<!-- ── Pipeline de leads ── -->
+{% set total_leads_estados = estados.values()|sum %}
+{% if total_leads_estados > 0 %}
+<div class="card" style="margin-bottom:1.2rem">
+  <div class="card-header">
+    <span class="card-title">Pipeline de Leads</span>
+    <span class="text-muted" style="font-size:.75rem">{{ total_leads_estados }} leads totales</span>
+  </div>
+  <div class="pipeline-bar">
+    {% for k, label, color in KANBAN_ESTADOS %}
+    {% set cnt = estados.get(k, 0) %}
+    {% if cnt > 0 %}
+    <div class="pipe-seg" style="width:{{ (cnt / total_leads_estados * 100)|round(1) }}%;background:{{ color }};" title="{{ label }}: {{ cnt }}"></div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  <div class="pipe-legend">
+    {% for k, label, color in KANBAN_ESTADOS %}
+    {% set cnt = estados.get(k, 0) %}
+    <div class="pipe-lbl">
+      <div class="pipe-dot" style="background:{{ color }}"></div>
+      {{ label }}: <span class="pipe-val">{{ cnt }}</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Asignaciones recientes ── -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Asignaciones Recientes</span>
+    <a href="{{ url_for('admin_asignaciones') }}" class="btn btn-outline btn-sm">Ver todas →</a>
+  </div>
+  {% if not asigns_recientes %}
+  <div style="padding:2.5rem;text-align:center;color:var(--muted)">
+    <div style="font-size:2rem;margin-bottom:.5rem">📋</div>
+    <div>Aún no hay asignaciones. <a href="{{ url_for('admin_asignaciones') }}" style="color:var(--red-400)">Crear la primera →</a></div>
+  </div>
+  {% else %}
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Comercial</th><th>CNAE</th><th>Provincia</th>
+          <th>Progreso</th><th>Leads</th><th>Creada</th><th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in asigns_recientes %}
+        <tr id="dash-row-{{ a.id }}">
+          <td><strong>{{ a.comercial.nombre }}</strong></td>
+          <td>
+            <span class="badge badge-red">{{ a.cnae }}</span>
+            {% if a.cnae_desc %}<div class="text-muted" style="font-size:.68rem;margin-top:.1rem">{{ a.cnae_desc }}</div>{% endif %}
+          </td>
+          <td>{{ a.provincia or '— España —' }}</td>
+          <td style="min-width:140px">
+            <div id="dash-est-{{ a.id }}">
+              {% if a.estado == 'completada' %}
+                <span class="badge badge-green">✓ Lista</span>
+              {% elif a.estado == 'scrapeando' %}
+                <div>
+                  <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem">
+                    <span class="spin" style="color:var(--warning)">⟳</span>
+                    <span class="badge badge-yellow" id="dash-pct-{{ a.id }}">{{ a.progreso }}%</span>
+                    <span class="text-muted" id="dash-msg-{{ a.id }}" style="font-size:.68rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.mensaje or '' }}</span>
+                  </div>
+                  <div class="progress-bar-wrap">
+                    <div class="progress-bar-fill" id="dash-bar-{{ a.id }}" style="width:{{ a.progreso }}%"></div>
+                  </div>
+                </div>
+              {% elif a.estado == 'error' %}
+                <span class="badge badge-red" title="{{ a.mensaje }}">✗ Error</span>
+              {% else %}
+                <span class="badge badge-gray">⏳ Pendiente</span>
+              {% endif %}
+            </div>
+          </td>
+          <td style="text-align:center;font-weight:700" id="dash-total-{{ a.id }}">{{ a.total_leads }}</td>
+          <td class="text-muted">{{ a.fecha_creacion|fmt_fecha }}</td>
+          <td>
+            {% if a.estado == 'completada' and a.comercial %}
+            <a href="{{ url_for('comercial_kanban', user_id=a.comercial_id) }}" class="btn btn-ghost btn-sm">Kanban</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Polling en tiempo real para asignaciones activas ──────────────────────
+(function() {
+  // Buscar todas las filas que tengan progreso activo
+  function getActivas() {
+    return Array.from(document.querySelectorAll('[id^="dash-est-"]'))
+      .filter(el => el.querySelector('.spin') !== null)
+      .map(el => el.id.replace('dash-est-', ''));
+  }
+
+  function updateRow(aid, d) {
+    const estEl  = document.getElementById('dash-est-' + aid);
+    const totEl  = document.getElementById('dash-total-' + aid);
+    if (!estEl) return;
+
+    if (totEl) totEl.textContent = d.total || '0';
+
+    if (d.estado === 'completada') {
+      estEl.innerHTML = '<span class="badge badge-green">✓ Lista</span>';
+      // Refrescar stats después de completar
+      setTimeout(refreshStats, 500);
+    } else if (d.estado === 'error') {
+      estEl.innerHTML = `<span class="badge badge-red" title="${d.mensaje || ''}">✗ Error</span>`;
+    } else if (d.estado === 'scrapeando') {
+      const pct = d.progreso || 0;
+      const msg = (d.mensaje || '').substring(0, 50);
+      estEl.innerHTML = `
+        <div>
+          <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem">
+            <span class="spin" style="color:var(--warning)">⟳</span>
+            <span class="badge badge-yellow">${pct}%</span>
+            <span class="text-muted" style="font-size:.68rem;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${msg}</span>
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" style="width:${pct}%"></div>
+          </div>
+        </div>`;
+    }
+  }
+
+  function poll() {
+    const activas = getActivas();
+    activas.forEach(aid => {
+      fetch(`/admin/asignaciones/${aid}/estado`)
+        .then(r => r.json())
+        .then(d => updateRow(aid, d))
+        .catch(() => {});
+    });
+  }
+
+  function refreshStats() {
+    fetch('/api/dashboard/stats')
+      .then(r => r.json())
+      .then(d => {
+        if (d.total_leads !== undefined) {
+          document.getElementById('st-leads').textContent  = d.total_leads;
+          document.getElementById('st-asigns').textContent = d.total_asigns;
+          document.getElementById('st-com').textContent    = d.total_comerciales;
+          document.getElementById('st-usr').textContent    = d.total_usuarios;
+        }
+      }).catch(() => {});
+  }
+
+  // Arrancar polling si hay activas
+  if (getActivas().length > 0) {
+    poll();
+    setInterval(poll, 2500);
+  }
+})();
+
+let reenrichInterval = null;
+
+function reEnriquecerTodos() {
+  const btn = document.getElementById('btn-re-enriquecer-todos');
+  if (btn.disabled) return;
+  if (!confirm("Esto iniciará un re-enriquecimiento de todos los leads que no tengan teléfono o correo. Puede tardar varios minutos en segundo plano. ¿Continuar?")) return;
+  
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spin">⏳</span> Iniciando...';
+  
+  fetch('/admin/re-enriquecer-faltantes', {method: 'POST'})
+    .then(r => r.json())
+    .then(res => {
+      if (res.ok) {
+        alert(res.msg);
+        checkReEnrichStatus();
+        reenrichInterval = setInterval(checkReEnrichStatus, 3000);
+      } else {
+        btn.disabled = false;
+        btn.innerHTML = '<span style="margin-right: 5px;">⚡</span> Re-enriquecer faltantes';
+        alert(res.msg);
+      }
+    })
+    .catch(err => {
+      btn.disabled = false;
+      btn.innerHTML = '<span style="margin-right: 5px;">⚡</span> Re-enriquecer faltantes';
+      alert("Error de conexión.");
+    });
+}
+
+function checkReEnrichStatus() {
+  fetch('/admin/re-enriquecer-estado')
+    .then(r => r.json())
+    .then(d => {
+      const btn = document.getElementById('btn-re-enriquecer-todos');
+      if (d.activo) {
+        btn.disabled = true;
+        btn.classList.replace('btn-primary', 'btn-warning');
+        btn.innerHTML = `<span class="spin">⏳</span> Enriqueciendo: ${d.pct}% (${d.hechos}/${d.total})`;
+      } else {
+        if (reenrichInterval) clearInterval(reenrichInterval);
+        if (btn.disabled && btn.innerHTML.includes('Enriqueciendo')) {
+            btn.innerHTML = '<span style="margin-right: 5px;">✓</span> Proceso Completado';
+            btn.classList.replace('btn-warning', 'btn-success');
+            setTimeout(() => {
+                btn.disabled = false;
+                btn.classList.replace('btn-success', 'btn-primary');
+                btn.innerHTML = '<span style="margin-right: 5px;">⚡</span> Re-enriquecer faltantes';
+            }, 5000);
+        }
+      }
+    }).catch(() => {});
+}
+
+// Comprobar estado al cargar la página por si ya hay un proceso en curso
+checkReEnrichStatus();
+if (document.getElementById('btn-re-enriquecer-todos').disabled) {
+    reenrichInterval = setInterval(checkReEnrichStatus, 3000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+{% block title %}Dashboard Admin — Radar CRM{% endblock %}
+{% block topbar_title %}Dashboard{% endblock %}
+{% block topbar_sub %}Vista general del sistema{% endblock %}
+
+{% block content %}
+<!-- Stats -->
+<div class="stats-grid">
+  <div class="stat-card">
+    <div class="stat-label">Total Leads</div>
+    <div class="stat-value red">{{ total_leads }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Asignaciones</div>
+    <div class="stat-value">{{ total_asigns }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Comerciales Activos</div>
+    <div class="stat-value">{{ total_comerciales }}</div>
+  </div>
+  <div class="stat-card">
+    <div class="stat-label">Usuarios Totales</div>
+    <div class="stat-value">{{ total_usuarios }}</div>
+  </div>
+  {% for k, label, color in KANBAN_ESTADOS %}
+  {% if estados.get(k) %}
+  <div class="stat-card">
+    <div class="stat-label">{{ label }}</div>
+    <div class="stat-value" style="font-size:1.5rem">{{ estados[k] }}</div>
+  </div>
+  {% endif %}
+  {% endfor %}
+</div>
+
+<!-- Asignaciones recientes -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">Asignaciones Recientes</span>
+    <a href="{{ url_for('admin_asignaciones') }}" class="btn btn-outline btn-sm">Ver todas →</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Comercial</th>
+          <th>CNAE</th>
+          <th>Provincia</th>
+          <th>Estado</th>
+          <th>Leads</th>
+          <th>Creada</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for a in asigns_recientes %}
+        <tr>
+          <td>{{ a.comercial.nombre }}</td>
+          <td>
+            <span class="badge badge-red">{{ a.cnae }}</span>
+            {% if a.cnae_desc %}
+            <span class="text-muted"> {{ a.cnae_desc }}</span>
+            {% endif %}
+          </td>
+          <td>{{ a.provincia or '— Nacional —' }}</td>
+          <td>
+            {% if a.estado == 'completada' %}
+              <span class="badge badge-green">✓ Completada</span>
+            {% elif a.estado == 'scrapeando' %}
+              <span class="badge badge-yellow" id="est-{{ a.id }}">
+                ⟳ {{ a.progreso }}%
+              </span>
+            {% elif a.estado == 'error' %}
+              <span class="badge badge-red">✗ Error</span>
+            {% else %}
+              <span class="badge badge-gray">Pendiente</span>
+            {% endif %}
+          </td>
+          <td>{{ a.total_leads }}</td>
+          <td class="text-muted">{{ a.fecha_creacion|fmt_fecha }}</td>
+          <td>
+            {% if a.comercial %}
+            <a href="{{ url_for('comercial_kanban', user_id=a.comercial_id) }}"
+               class="btn btn-ghost btn-sm">Ver Kanban</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="7" style="text-align:center;color:var(--muted);padding:2rem">
+            Aún no hay asignaciones.
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

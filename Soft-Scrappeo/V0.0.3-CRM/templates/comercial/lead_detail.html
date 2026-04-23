@@ -1,0 +1,547 @@
+{% extends "base.html" %}
+{% block title %}{{ lead.nombre }} — Radar CRM{% endblock %}
+{% block topbar_title %}{{ lead.nombre }}{% endblock %}
+{% block topbar_sub %}{{ lead.provincia }} · CNAE {{ lead.cnae }}{% endblock %}
+{% block topbar_right %}
+<a href="{{ url_for('comercial_kanban') }}" class="btn btn-outline btn-sm">← Kanban</a>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+  .detail-layout {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 1.2rem;
+    align-items: start;
+  }
+
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+    margin-bottom: 1.2rem;
+  }
+
+  .info-field {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.7rem 0.9rem;
+    cursor: pointer;
+    transition: border-color 0.15s;
+    position: relative;
+  }
+  .info-field:hover { border-color: var(--border2); }
+  .info-field.editing { border-color: var(--red-600); }
+
+  .field-label {
+    font-size: 0.68rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: var(--muted);
+    margin-bottom: 0.25rem;
+  }
+  .field-value {
+    font-size: 0.88rem;
+    color: var(--text);
+    font-weight: 500;
+    word-break: break-word;
+  }
+  .field-value.empty { color: var(--hint); font-weight: 400; }
+  .field-value a {
+    color: var(--red-400);
+    text-decoration: none;
+  }
+  .field-value a:hover { text-decoration: underline; }
+
+  .inline-edit {
+    display: none;
+    width: 100%;
+    background: var(--bg2);
+    border: 1px solid var(--red-600);
+    border-radius: 6px;
+    color: var(--text);
+    font-family: Inter, sans-serif;
+    font-size: 0.88rem;
+    padding: 0.4rem 0.6rem;
+    margin-top: 0.25rem;
+  }
+  .inline-edit:focus { outline: none; }
+
+  .edit-hint {
+    font-size: 0.65rem;
+    color: var(--hint);
+    position: absolute;
+    top: 0.4rem; right: 0.5rem;
+  }
+
+  /* Timeline de comentarios */
+  .timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+  }
+  .timeline-item {
+    display: flex;
+    gap: 0.7rem;
+    align-items: flex-start;
+  }
+  .timeline-avatar {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--red-800);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--red-100);
+    flex-shrink: 0;
+  }
+  .timeline-body {
+    flex: 1;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 0.65rem 0.85rem;
+  }
+  .timeline-meta {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 0.3rem;
+  }
+  .timeline-text {
+    font-size: 0.84rem;
+    color: var(--text);
+    white-space: pre-wrap;
+    line-height: 1.5;
+  }
+
+  /* Actividad */
+  .act-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.78rem;
+  }
+  .act-item:last-child { border-bottom: none; }
+  .act-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    background: var(--red-600);
+    flex-shrink: 0;
+    margin-top: 4px;
+  }
+  .act-text { color: var(--muted); }
+  .act-text strong { color: var(--text); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-layout">
+
+  <!-- Columna izquierda: datos + comentarios -->
+  <div>
+
+    <!-- Estado actual + cambio rápido -->
+    <div class="card" style="margin-bottom:1.2rem">
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+        <div>
+          <div class="text-muted text-sm" style="margin-bottom:0.3rem">Estado actual</div>
+          {% for k, label, color in estados %}
+          {% if k == lead.estado %}
+          <div style="display:flex;align-items:center;gap:0.5rem">
+            <span style="width:10px;height:10px;border-radius:50%;
+                         background:{{ color }};flex-shrink:0"></span>
+            <span style="font-weight:700;font-size:1rem">{{ label }}</span>
+          </div>
+          {% endif %}
+          {% endfor %}
+        </div>
+
+        <div style="margin-left:auto;display:flex;flex-wrap:wrap;gap:0.4rem">
+          {% for k, label, color in estados %}
+          <button onclick="cambiarEstado('{{ k }}')"
+                  id="btn-est-{{ k }}"
+                  class="btn btn-sm {% if k == lead.estado %}btn-red{% else %}btn-outline{% endif %}"
+                  style="border-color:{{ color }}">
+            {{ label }}
+          </button>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Datos de la empresa -->
+    <div class="card" style="margin-bottom:1.2rem">
+      <div class="card-header">
+        <span class="card-title">📋 Datos de la empresa</span>
+        <div style="display:flex;gap:0.5rem">
+          {% if not lead.enriquecido %}
+          <button class="btn btn-outline btn-sm" id="btn-enrich"
+                  onclick="enriquecer()">
+            🔍 Enriquecer datos
+          </button>
+          {% else %}
+          <span class="badge badge-green" style="font-size:0.7rem">✓ Datos enriquecidos</span>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="info-grid">
+
+        {% macro field(icon, label, value, key, tipo='text') %}
+        <div class="info-field" onclick="editarCampo('{{ key }}')" id="field-{{ key }}">
+          <span class="edit-hint">✎</span>
+          <div class="field-label">{{ icon }} {{ label }}</div>
+          <div class="field-value {% if not value %}empty{% endif %}" id="val-{{ key }}">
+            {% if value %}
+              {% if tipo == 'url' %}
+                <a href="{{ value }}" target="_blank" onclick="e=event;e.stopPropagation()">
+                  {{ value[:40] }}{% if value|length > 40 %}…{% endif %}
+                </a>
+              {% else %}
+                {{ value }}
+              {% endif %}
+            {% else %}— sin datos —{% endif %}
+          </div>
+          <input class="inline-edit" id="edit-{{ key }}" type="{{ tipo }}"
+                 value="{{ value or '' }}"
+                 onblur="guardarCampo('{{ key }}')"
+                 onkeydown="if(event.key==='Enter')guardarCampo('{{ key }}');
+                            if(event.key==='Escape')cancelarEdit('{{ key }}')">
+        </div>
+        {% endmacro %}
+
+        {{ field('📞', 'Teléfono',  lead.telefono, 'telefono', 'tel') }}
+        {{ field('📧', 'Email',     lead.email,    'email',    'email') }}
+        {{ field('🌐', 'Web',       lead.web,      'web',      'url') }}
+        {{ field('📍', 'Dirección', lead.direccion,'direccion') }}
+        {{ field('👤', 'Gerente',   lead.gerente,  'gerente') }}
+
+        <!-- Licita: campo especial con select -->
+        <div class="info-field" onclick="editarLicita()" id="field-licita">
+          <span class="edit-hint">✎</span>
+          <div class="field-label">🏛️ ¿Licita?</div>
+          <div class="field-value" id="val-licita">
+            {% if lead.licita == 'sí' %}
+              <span class="licita-si">✓ Sí licita</span>
+            {% elif lead.licita == 'no' %}
+              <span class="licita-no">✗ No licita</span>
+            {% else %}
+              <span class="licita-nd">? Sin verificar</span>
+            {% endif %}
+          </div>
+          <select class="inline-edit" id="edit-licita"
+                  onchange="guardarCampo('licita')"
+                  onblur="guardarCampo('licita')">
+            <option value="?" {% if lead.licita == '?' %}selected{% endif %}>? Sin verificar</option>
+            <option value="sí" {% if lead.licita == 'sí' %}selected{% endif %}>✓ Sí licita</option>
+            <option value="no" {% if lead.licita == 'no' %}selected{% endif %}>✗ No licita</option>
+          </select>
+        </div>
+
+        <!-- Datos de ranking (solo lectura) -->
+        <div class="info-field" style="cursor:default">
+          <div class="field-label">📊 Posición ranking</div>
+          <div class="field-value">
+            #{{ lead.posicion_nacional|fmt_num if lead.posicion_nacional else '—' }}
+          </div>
+        </div>
+
+        <div class="info-field" style="cursor:default">
+          <div class="field-label">💰 Facturación</div>
+          <div class="field-value">{{ lead.facturacion_raw or '—' }}</div>
+        </div>
+
+        <div class="info-field" style="cursor:default">
+          <div class="field-label">📈 Tendencia</div>
+          <div class="field-value">
+            {% if lead.tendencia == 'Sube' %}
+              <span class="tend-sube">▲ Subiendo</span>
+            {% elif lead.tendencia == 'Baja' %}
+              <span class="tend-baja">▼ Bajando</span>
+            {% else %}
+              <span class="tend-igual">● Estable</span>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if lead.url_ficha %}
+        <div class="info-field" style="cursor:default;grid-column:1/-1">
+          <div class="field-label">🔗 Ficha eleconomista</div>
+          <div class="field-value">
+            <a href="{{ lead.url_ficha }}" target="_blank" style="color:var(--red-400)">
+              {{ lead.url_ficha[:60] }}{% if lead.url_ficha|length > 60 %}…{% endif %}
+            </a>
+          </div>
+        </div>
+        {% endif %}
+
+      </div>
+    </div>
+
+    <!-- Comentarios -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">💬 Notas y conversaciones</span>
+        <span class="text-muted text-sm">
+          {{ lead.comentarios.count() }} comentario{{ 's' if lead.comentarios.count() != 1 }}
+        </span>
+      </div>
+
+      <!-- Nuevo comentario -->
+      <div style="margin-bottom:1.2rem">
+        <textarea class="form-textarea" id="nuevo-comentario"
+                  placeholder="Escribe lo que hablaste con la empresa, siguientes pasos…"
+                  rows="3"></textarea>
+        <div style="display:flex;justify-content:flex-end;margin-top:0.5rem">
+          <button class="btn btn-red btn-sm" onclick="enviarComentario()">
+            Guardar nota
+          </button>
+        </div>
+      </div>
+
+      <!-- Lista de comentarios -->
+      <div class="timeline" id="timeline">
+        {% for c in lead.comentarios %}
+        <div class="timeline-item">
+          <div class="timeline-avatar">{{ c.autor.nombre[:2]|upper }}</div>
+          <div class="timeline-body">
+            <div class="timeline-meta">
+              <strong>{{ c.autor.nombre }}</strong> · {{ c.fecha|fmt_fecha }}
+            </div>
+            <div class="timeline-text">{{ c.texto }}</div>
+          </div>
+        </div>
+        {% else %}
+        <div id="no-comentarios" class="text-muted text-sm"
+             style="text-align:center;padding:1rem">
+          Aún no hay notas. Sé el primero en registrar algo.
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Columna derecha: info rápida + actividad -->
+  <div>
+
+    <!-- Resumen rápido -->
+    <div class="card" style="margin-bottom:1.2rem">
+      <div class="card-header">
+        <span class="card-title">⚡ Resumen</span>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:0.6rem">
+        <div style="display:flex;justify-content:space-between;
+                    padding:0.5rem 0;border-bottom:1px solid var(--border)">
+          <span class="text-muted">Empresa</span>
+          <span style="font-weight:600;text-align:right;max-width:180px">
+            {{ lead.nombre }}
+          </span>
+        </div>
+        <div style="display:flex;justify-content:space-between;
+                    padding:0.5rem 0;border-bottom:1px solid var(--border)">
+          <span class="text-muted">CNAE</span>
+          <span class="badge badge-red">{{ lead.cnae }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;
+                    padding:0.5rem 0;border-bottom:1px solid var(--border)">
+          <span class="text-muted">Provincia</span>
+          <span>{{ lead.provincia or '—' }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;
+                    padding:0.5rem 0;border-bottom:1px solid var(--border)">
+          <span class="text-muted">Facturación</span>
+          <span>{{ lead.facturacion_raw or '—' }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;
+                    padding:0.5rem 0;border-bottom:1px solid var(--border)">
+          <span class="text-muted">Pos. nacional</span>
+          <span>#{{ lead.posicion_nacional|fmt_num }}</span>
+        </div>
+        <div style="display:flex;justify-content:space-between;
+                    padding:0.5rem 0;border-bottom:1px solid var(--border)">
+          <span class="text-muted">¿Licita?</span>
+          <span class="licita-{{ lead.licita|replace('?','nd') }}">
+            {% if lead.licita == 'sí' %}✓ Sí
+            {% elif lead.licita == 'no' %}✗ No
+            {% else %}? Sin verificar{% endif %}
+          </span>
+        </div>
+        <div style="display:flex;justify-content:space-between;padding:0.5rem 0">
+          <span class="text-muted">Asignado a</span>
+          <span>{{ lead.comercial.nombre if lead.comercial else '—' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Historial de actividad -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">📜 Historial</span>
+      </div>
+      <div>
+        {% for act in lead.actividades %}
+        <div class="act-item">
+          <div class="act-dot"></div>
+          <div>
+            <div class="act-text">
+              <strong>{{ act.usuario.nombre }}</strong> —
+              {% if act.tipo == 'estado_cambio' %}
+                Cambió estado: {{ act.detalle }}
+              {% elif act.tipo == 'comentario' %}
+                Añadió nota
+              {% elif act.tipo == 'edicion' %}
+                Editó datos
+              {% else %}
+                {{ act.tipo }}
+              {% endif %}
+            </div>
+            <div class="text-muted" style="font-size:0.7rem">
+              {{ act.fecha|fmt_fecha }}
+            </div>
+          </div>
+        </div>
+        {% else %}
+        <div class="text-muted text-sm" style="padding:0.5rem;text-align:center">
+          Sin actividad registrada.
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const LEAD_ID = {{ lead.id }};
+
+// ── Estado ────────────────────────────────────────────────────────────────────
+function cambiarEstado(nuevo) {
+  fetch(`/lead/${LEAD_ID}/estado`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({estado: nuevo}),
+  }).then(r => r.json()).then(() => {
+    document.querySelectorAll('[id^="btn-est-"]').forEach(b => {
+      b.classList.remove('btn-red');
+      b.classList.add('btn-outline');
+    });
+    document.getElementById('btn-est-' + nuevo).classList.add('btn-red');
+    document.getElementById('btn-est-' + nuevo).classList.remove('btn-outline');
+  });
+}
+
+// ── Edición inline ─────────────────────────────────────────────────────────
+function editarCampo(key) {
+  const input = document.getElementById('edit-' + key);
+  const field = document.getElementById('field-' + key);
+  if (!input) return;
+  input.style.display = 'block';
+  document.getElementById('val-' + key).style.display = 'none';
+  field.classList.add('editing');
+  input.focus();
+}
+
+function editarLicita() {
+  editarCampo('licita');
+}
+
+function cancelarEdit(key) {
+  document.getElementById('edit-' + key).style.display = 'none';
+  document.getElementById('val-' + key).style.display = 'block';
+  document.getElementById('field-' + key).classList.remove('editing');
+}
+
+function guardarCampo(key) {
+  const input  = document.getElementById('edit-' + key);
+  const valDiv = document.getElementById('val-' + key);
+  if (!input) return;
+
+  const value = input.value.trim();
+  input.style.display = 'none';
+  valDiv.style.display = 'block';
+  document.getElementById('field-' + key).classList.remove('editing');
+
+  // Actualizar display
+  if (key === 'licita') {
+    const textos = { 'sí': '✓ Sí licita', 'no': '✗ No licita', '?': '? Sin verificar' };
+    const clases = { 'sí': 'licita-si',    'no': 'licita-no',    '?': 'licita-nd' };
+    valDiv.innerHTML = `<span class="${clases[value] || 'licita-nd'}">${textos[value] || '?'}</span>`;
+  } else if (key === 'web' && value) {
+    valDiv.innerHTML = `<a href="${value}" target="_blank" onclick="e=event;e.stopPropagation()">${value.substring(0,40)}${value.length>40?'…':''}</a>`;
+  } else {
+    valDiv.textContent = value || '— sin datos —';
+    valDiv.className = 'field-value' + (value ? '' : ' empty');
+  }
+
+  // Guardar en servidor
+  const payload = {};
+  payload[key] = value;
+  fetch(`/lead/${LEAD_ID}/editar`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(payload),
+  });
+}
+
+// ── Comentarios ───────────────────────────────────────────────────────────────
+function enviarComentario() {
+  const ta = document.getElementById('nuevo-comentario');
+  const texto = ta.value.trim();
+  if (!texto) return;
+
+  const form = new FormData();
+  form.append('texto', texto);
+
+  fetch(`/lead/${LEAD_ID}/comentario`, { method: 'POST', body: form })
+    .then(r => r.json())
+    .then(c => {
+      if (c.error) return;
+      ta.value = '';
+
+      const noComt = document.getElementById('no-comentarios');
+      if (noComt) noComt.remove();
+
+      const tl = document.getElementById('timeline');
+      const item = document.createElement('div');
+      item.className = 'timeline-item';
+      item.innerHTML = `
+        <div class="timeline-avatar">${c.autor.substring(0,2).toUpperCase()}</div>
+        <div class="timeline-body">
+          <div class="timeline-meta"><strong>${c.autor}</strong> · ${c.fecha}</div>
+          <div class="timeline-text">${c.texto}</div>
+        </div>`;
+      tl.insertBefore(item, tl.firstChild);
+    });
+}
+
+// ── Enriquecer ────────────────────────────────────────────────────────────────
+function enriquecer() {
+  const btn = document.getElementById('btn-enrich');
+  if (!btn) return;
+  btn.disabled = true;
+  btn.textContent = '⟳ Enriqueciendo…';
+
+  fetch(`/lead/${LEAD_ID}/enriquecer`, { method: 'POST' })
+    .then(r => r.json())
+    .then(() => {
+      btn.textContent = '✓ Lanzado — recarga en 30s';
+      setTimeout(() => location.reload(), 30000);
+    });
+}
+
+// Enter para enviar comentario (Shift+Enter = nueva línea)
+document.getElementById('nuevo-comentario').addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    enviarComentario();
+  }
+});
+</script>
+{% endblock %}

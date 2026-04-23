@@ -1,0 +1,31 @@
+start_url: "https://example.com"
+headless: true
+timeout_ms: 20000
+
+navigation:
+  - action: wait_for
+    selector: "button.open-menu"
+  - action: click
+    selector: "button.open-menu"
+  - action: click
+    selector: "a.go-to-section"
+  - action: sleep
+    ms: 800
+
+extraction:
+  mode: list
+  item_selector: ".card"
+  fields:
+    - name: title
+      selector: ".title"
+      attr: text
+    - name: price
+      selector: ".price"
+      attr: text
+    - name: details_url
+      selector: "a"
+      attr: href
+
+output:
+  format: json
+  path: "output/results"

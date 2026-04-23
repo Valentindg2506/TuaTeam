@@ -1,0 +1,254 @@
+{% extends "base.html" %}
+{% block title %}Asignaciones — Radar CRM{% endblock %}
+{% block topbar_title %}Asignaciones{% endblock %}
+{% block topbar_sub %}Scraping de leads por CNAE y provincia{% endblock %}
+{% block topbar_right %}
+<button class="btn btn-red" onclick="document.getElementById('modal-asig').classList.add('show')">
+  + Nueva asignación
+</button>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.progress-bar-wrap { background: var(--bg3); border-radius: 99px; height: 5px; overflow: hidden; margin-top: .3rem; width: 130px; }
+.progress-bar-fill { height: 100%; background: linear-gradient(90deg, var(--red-700), #f97316); border-radius: 99px; transition: width .6s ease; }
+.spin { animation: spin 1.2s linear infinite; display: inline-block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.estado-cell { min-width: 160px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Comercial</th><th>CNAE</th><th>Provincia</th><th>Págs</th>
+          <th>Estado</th><th>Leads</th><th>Por</th><th>Fecha</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="asig-tbody">
+        {% for a in asigns %}
+        <tr id="row-{{ a.id }}">
+          <td><strong>{{ a.comercial.nombre }}</strong></td>
+          <td>
+            <span class="badge badge-red">{{ a.cnae }}</span>
+            {% if a.cnae_desc %}<div class="text-muted" style="font-size:.7rem;margin-top:.15rem">{{ a.cnae_desc }}</div>{% endif %}
+          </td>
+          <td>{{ a.provincia or '— España —' }}</td>
+          <td style="text-align:center">{{ a.paginas }}</td>
+          <td class="estado-cell">
+            <div id="est-{{ a.id }}">
+              {% if a.estado == 'completada' %}
+                <div>
+                  <span class="badge badge-green">✓ Lista</span>
+                  {% if a.mensaje %}
+                  <div class="text-muted" style="font-size:.68rem;margin-top:.3rem;max-width:200px;line-height:1.4">
+                    {{ a.mensaje | replace('✅ ', '') }}
+                  </div>
+                  {% endif %}
+                </div>
+              {% elif a.estado == 'scrapeando' %}
+                <div>
+                  <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem">
+                    <span class="spin" style="color:var(--warning)">⟳</span>
+                    <span class="badge badge-yellow"><span id="pct-{{ a.id }}">{{ a.progreso }}</span>%</span>
+                  </div>
+                  <div class="progress-bar-wrap">
+                    <div class="progress-bar-fill" id="bar-{{ a.id }}" style="width:{{ a.progreso }}%"></div>
+                  </div>
+                  <div class="text-muted" id="msg-{{ a.id }}" style="font-size:.68rem;margin-top:.2rem;max-width:160px">{{ a.mensaje or '' }}</div>
+                </div>
+              {% elif a.estado == 'pendiente' %}
+                <div>
+                  <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem">
+                    <span class="spin" style="color:var(--muted)">⟳</span>
+                    <span class="badge badge-gray">Iniciando…</span>
+                  </div>
+                  <div class="progress-bar-wrap">
+                    <div class="progress-bar-fill" id="bar-{{ a.id }}" style="width:2%"></div>
+                  </div>
+                </div>
+              {% elif a.estado == 'error' %}
+                <span class="badge badge-red" title="{{ a.mensaje }}">✗ Error</span>
+                {% if a.mensaje %}
+                <div class="text-muted" style="font-size:.7rem;max-width:180px;margin-top:.2rem">{{ a.mensaje[:90] }}</div>
+                {% endif %}
+              {% else %}
+                <span class="badge badge-gray">Pendiente</span>
+              {% endif %}
+            </div>
+          </td>
+          <td style="text-align:center;font-weight:700" id="total-{{ a.id }}">{{ a.total_leads }}</td>
+          <td class="text-muted">{{ a.creado_por.nombre if a.creado_por else '—' }}</td>
+          <td class="text-muted">{{ a.fecha_creacion|fmt_fecha }}</td>
+          <td>
+            <div class="flex gap-1">
+              {% if a.estado == 'completada' %}
+              <a href="{{ url_for('comercial_kanban', user_id=a.comercial_id) }}"
+                 class="btn btn-outline btn-sm">Kanban</a>
+              {% endif %}
+              <form method="POST" action="{{ url_for('admin_asignacion_eliminar', aid=a.id) }}"
+                    onsubmit="return confirm('¿Eliminar asignación y todos sus leads?')">
+                <button class="btn btn-sm" type="submit"
+                        style="background:rgba(185,28,28,.12);color:var(--red-400);border:1px solid rgba(185,28,28,.2)">Eliminar</button>
+              </form>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="9" style="text-align:center;color:var(--muted);padding:3rem">
+          No hay asignaciones. <button class="btn btn-red btn-sm"
+            onclick="document.getElementById('modal-asig').classList.add('show')">+ Crear la primera</button>
+        </td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal nueva asignación -->
+<div class="modal-overlay" id="modal-asig">
+  <div class="modal">
+    <button class="modal-close" onclick="document.getElementById('modal-asig').classList.remove('show')">✕</button>
+    <div class="modal-title">Nueva asignación de scraping</div>
+    <form method="POST" action="{{ url_for('admin_asignacion_nueva') }}">
+      <div class="form-row">
+        <div class="form-group full">
+          <label class="form-label">Comercial *</label>
+          <select class="form-select" name="comercial_id" required>
+            <option value="">— Selecciona —</option>
+            {% for c in comerciales %}
+            <option value="{{ c.id }}">{{ c.nombre }} ({{ c.email }})</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Código CNAE *</label>
+          <input class="form-input" type="text" name="cnae"
+                 placeholder="Ej: 4662" pattern="\d{3,5}" required title="3–5 dígitos">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Descripción (opcional)</label>
+          <input class="form-input" type="text" name="cnae_desc" placeholder="Ej: Máquinas herramienta">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Provincia</label>
+          <select class="form-select" name="provincia">
+            <option value="">— Toda España —</option>
+            {% for p in ['Álava','Albacete','Alicante','Almería','Asturias','Ávila','Badajoz',
+              'Barcelona','Bizkaia','Burgos','Cáceres','Cádiz','Cantabria','Castellón',
+              'Ciudad Real','Córdoba','Coruña','Cuenca','Gerona','Gipuzkoa','Granada',
+              'Guadalajara','Huelva','Huesca','Islas Baleares','Jaén','La Rioja',
+              'Las Palmas','León','Lleida','Lugo','Madrid','Málaga','Murcia','Navarra',
+              'Ourense','Palencia','Pontevedra','Salamanca','Segovia','Sevilla','Soria',
+              'Tarragona','Tenerife','Teruel','Toledo','Valencia','Valladolid','Zamora','Zaragoza'] %}
+            <option>{{ p }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Páginas a descargar <span class="text-muted">(~100 emp/pág)</span></label>
+          <input class="form-input" type="number" name="paginas" value="3" min="1" max="10">
+        </div>
+      </div>
+      <div style="background:rgba(185,28,28,.07);border:1px solid rgba(185,28,28,.2);
+                  border-radius:var(--r);padding:.75rem;margin:.9rem 0;font-size:.78rem;color:#f87171">
+        ℹ El scraping se lanza en segundo plano. El progreso se actualiza automáticamente cada 2,5 segundos.
+      </div>
+      <div style="display:flex;gap:.7rem;justify-content:flex-end">
+        <button type="button" class="btn btn-outline"
+                onclick="document.getElementById('modal-asig').classList.remove('show')">Cancelar</button>
+        <button type="submit" class="btn btn-red">Crear y scrapear</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ── Polling robusto con descubrimiento de asignaciones activas ────────────────
+(function() {
+  let polling = null;
+
+  function renderEstado(aid, d) {
+    const estEl  = document.getElementById('est-' + aid);
+    const totEl  = document.getElementById('total-' + aid);
+    if (!estEl) return;
+    if (totEl) totEl.textContent = d.total ?? 0;
+
+    if (d.estado === 'completada') {
+      estEl.innerHTML = '<span class="badge badge-green">✓ Lista</span>';
+      stopIfNoActivas();
+    } else if (d.estado === 'error') {
+      const msg = (d.mensaje || '').substring(0, 90);
+      estEl.innerHTML = `<span class="badge badge-red" title="${d.mensaje || ''}">✗ Error</span>`
+        + (msg ? `<div class="text-muted" style="font-size:.7rem;max-width:180px;margin-top:.2rem">${msg}</div>` : '');
+      stopIfNoActivas();
+    } else {
+      const pct = d.progreso ?? 0;
+      const msg = (d.mensaje || '').substring(0, 60);
+      const spin = d.estado === 'pendiente' ? 'color:var(--muted)' : 'color:var(--warning)';
+      const badge = d.estado === 'pendiente'
+        ? '<span class="badge badge-gray">Iniciando…</span>'
+        : `<span class="badge badge-yellow">${pct}%</span>`;
+      estEl.innerHTML = `
+        <div>
+          <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.3rem">
+            <span class="spin" style="${spin}">⟳</span>
+            ${badge}
+          </div>
+          <div class="progress-bar-wrap">
+            <div class="progress-bar-fill" style="width:${pct}%"></div>
+          </div>
+          <div class="text-muted" style="font-size:.68rem;margin-top:.2rem;max-width:160px">${msg}</div>
+        </div>`;
+    }
+  }
+
+  function getActivasDOM() {
+    return Array.from(document.querySelectorAll('[id^="est-"]'))
+      .filter(el => el.querySelector('.spin') !== null)
+      .map(el => el.id.replace('est-', ''));
+  }
+
+  function pollActivas() {
+    const ids = getActivasDOM();
+    if (ids.length === 0) { stopPolling(); return; }
+    
+    fetch('/api/asignaciones/activas?ids=' + ids.join(','))
+      .then(r => r.json())
+      .then(lista => {
+        lista.forEach(d => renderEstado(d.id, d));
+        // Si ya no quedan tareas en curso en el DOM, paramos
+        stopIfNoActivas();
+      }).catch(() => {});
+  }
+
+  function stopPolling() {
+    if (polling) { clearInterval(polling); polling = null; }
+  }
+
+  function stopIfNoActivas() {
+    if (getActivasDOM().length === 0) stopPolling();
+  }
+
+  function startPolling() {
+    if (!polling) {
+      pollActivas();
+      polling = setInterval(pollActivas, 2500);
+    }
+  }
+
+  // Iniciar si hay activas al cargar
+  if (getActivasDOM().length > 0) startPolling();
+
+  // También arrancar cuando se crea una nueva asignación (form submit)
+  document.querySelector('form[action*="asignacion_nueva"]')?.addEventListener('submit', () => {
+    setTimeout(startPolling, 3000);
+  });
+})();
+</script>
+{% endblock %}

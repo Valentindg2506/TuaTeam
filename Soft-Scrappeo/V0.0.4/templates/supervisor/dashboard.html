@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Supervisión — Radar CRM{% endblock %}
+{% block topbar_title %}Control de equipo{% endblock %}
+{% block topbar_sub %}Actividad y rendimiento de comerciales{% endblock %}
+
+{% block content %}
+
+{% if not stats %}
+<div class="card" style="text-align:center;padding:3rem;color:var(--muted)">
+  No hay comerciales activos con leads asignados.
+</div>
+{% else %}
+
+<!-- Grid de comerciales -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
+            gap:1.2rem;margin-bottom:1.5rem">
+  {% for s in stats %}
+  <div class="card">
+    <div class="card-header">
+      <div style="display:flex;align-items:center;gap:0.7rem">
+        <div style="width:36px;height:36px;border-radius:50%;background:var(--red-800);
+                    display:flex;align-items:center;justify-content:center;
+                    font-weight:700;color:var(--red-100)">
+          {{ s.comercial.nombre[:2]|upper }}
+        </div>
+        <div>
+          <div style="font-weight:700">{{ s.comercial.nombre }}</div>
+          <div class="text-muted text-sm">{{ s.total }} leads totales</div>
+        </div>
+      </div>
+      <a href="{{ url_for('comercial_kanban', user_id=s.comercial.id) }}"
+         class="btn btn-outline btn-sm">Ver Kanban</a>
+    </div>
+
+    <!-- Barra de progreso por estados -->
+    <div style="margin-bottom:0.9rem">
+      {% set ganados  = s.estados.get('ganado',0) %}
+      {% set perdidos = s.estados.get('perdido',0) %}
+      {% set en_curso = s.total - ganados - perdidos %}
+      <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem">
+        <span class="badge badge-green">✓ {{ ganados }} clientes</span>
+        <span class="badge badge-red">✗ {{ perdidos }} descartados</span>
+        <span class="badge badge-yellow">⟳ {{ en_curso }} en curso</span>
+      </div>
+      <div style="height:6px;background:var(--bg3);border-radius:99px;overflow:hidden;
+                  display:flex;gap:1px">
+        {% if s.total > 0 %}
+        <div style="width:{{ (ganados/s.total*100)|round }}%;background:#16a34a"></div>
+        <div style="width:{{ (en_curso/s.total*100)|round }}%;background:#d97706"></div>
+        <div style="width:{{ (perdidos/s.total*100)|round }}%;background:#b91c1c"></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Distribución por estado -->
+    <div style="display:flex;flex-wrap:wrap;gap:0.4rem;margin-bottom:0.9rem">
+      {% for k, label, color in KANBAN_ESTADOS %}
+      {% if s.estados.get(k) %}
+      <div style="background:var(--bg3);border:1px solid var(--border);
+                  border-radius:7px;padding:0.3rem 0.6rem;font-size:0.72rem">
+        <span style="color:{{ color }}">●</span>
+        {{ label }}: <strong>{{ s.estados[k] }}</strong>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+
+    <!-- Actividad reciente -->
+    {% if s.actividad %}
+    <div style="border-top:1px solid var(--border);padding-top:0.8rem">
+      <div class="text-muted text-sm" style="margin-bottom:0.5rem">Últimas acciones</div>
+      {% for act in s.actividad %}
+      <div style="display:flex;gap:0.5rem;align-items:flex-start;margin-bottom:0.4rem">
+        <span style="color:var(--red-400);font-size:0.7rem;margin-top:2px;flex-shrink:0">●</span>
+        <div>
+          <div style="font-size:0.78rem">
+            {% if act.lead %}
+            <a href="{{ url_for('lead_detail', lid=act.lead_id) }}"
+               style="color:var(--text);text-decoration:none;font-weight:500">
+              {{ act.lead.nombre[:30] }}
+            </a>
+            {% endif %}
+          </div>
+          <div class="text-muted" style="font-size:0.72rem">
+            {{ act.tipo|replace('_',' ') }} · {{ act.fecha|fmt_fecha }}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Actividad global reciente -->
+<div class="card">
+  <div class="card-header">
+    <span class="card-title">📋 Actividad global reciente</span>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Usuario</th>
+          <th>Lead</th>
+          <th>Acción</th>
+          <th>Detalle</th>
+          <th>Fecha</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for act in actividad_global %}
+        <tr>
+          <td>{{ act.usuario.nombre if act.usuario else '—' }}</td>
+          <td>
+            {% if act.lead %}
+            <a href="{{ url_for('lead_detail', lid=act.lead_id) }}"
+               style="color:var(--red-400);text-decoration:none">
+              {{ act.lead.nombre[:35] }}
+            </a>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <span class="badge badge-gray">{{ act.tipo|replace('_',' ') }}</span>
+          </td>
+          <td class="text-muted">{{ act.detalle[:60] if act.detalle else '' }}</td>
+          <td class="text-muted">{{ act.fecha|fmt_fecha }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endif %}
+{% endblock %}

@@ -154,7 +154,10 @@
           <td class="text-muted">{{ a.fecha_creacion|fmt_fecha }}</td>
           <td>
             {% if a.estado == 'completada' and a.comercial %}
-            <a href="{{ url_for('comercial_kanban', user_id=a.comercial_id) }}" class="btn btn-ghost btn-sm">Kanban</a>
+            <div style="display:flex;gap:.35rem">
+              <a href="{{ url_for('comercial_kanban', user_id=a.comercial_id, vista='kanban') }}" class="btn btn-ghost btn-sm">Kanban</a>
+              <a href="{{ url_for('comercial_kanban', user_id=a.comercial_id, vista='lista') }}" class="btn btn-ghost btn-sm">Lista</a>
+            </div>
             {% endif %}
           </td>
         </tr>

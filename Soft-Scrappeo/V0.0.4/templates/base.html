@@ -47,13 +47,13 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
 .user-logout{margin-left:auto;color:var(--muted);text-decoration:none;font-size:.95rem;transition:color .15s}
 .user-logout:hover{color:var(--red-400)}
 /* ── Main ── */
-.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column}
+.main{margin-left:var(--sw);flex:1;display:flex;flex-direction:column;min-width:0}
 .topbar{background:var(--bg2);border-bottom:1px solid var(--border);height:54px;
   display:flex;align-items:center;padding:0 1.6rem;gap:.9rem;position:sticky;top:0;z-index:50}
 .topbar-title{font-size:1rem;font-weight:700}
 .topbar-sub{font-size:.76rem;color:var(--muted)}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:.65rem}
-.content{padding:1.6rem;flex:1}
+.content{padding:1.6rem;flex:1;min-width:0}
 /* ── Flash ── */
 .flash-wrap{padding:0 1.6rem;padding-top:.7rem}
 .alert{padding:.65rem .9rem;border-radius:var(--radius);font-size:.82rem;font-weight:500;
@@ -77,6 +77,10 @@ body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var
   border-radius:var(--radius);font-family:'Inter',sans-serif;font-size:.8rem;font-weight:600;
   cursor:pointer;border:none;text-decoration:none;transition:all .15s;white-space:nowrap}
 .btn-red{background:var(--red-700);color:white}.btn-red:hover{background:var(--red-600)}
+.btn-primary{background:var(--red-700);color:white;border:1px solid var(--red-700)}
+.btn-primary:hover{background:var(--red-600);border-color:var(--red-600)}
+.btn-warning{background:rgba(217,119,6,.22);color:#fdba74;border:1px solid rgba(217,119,6,.4)}
+.btn-warning:hover{background:rgba(217,119,6,.3)}
 .btn-outline{background:transparent;color:var(--muted);border:1px solid var(--border2)}
 .btn-outline:hover{background:var(--bg3);color:var(--text)}
 .btn-ghost{background:transparent;color:var(--muted);padding:.35rem .65rem}
@@ -189,7 +193,7 @@ tr:last-child td{border-bottom:none}
   {% endif %}
 
   <div class="sec-label">Comercial</div>
-  <a href="{{ url_for('comercial_kanban') }}" class="nav-item {% if request.endpoint=='comercial_kanban' %}active{% endif %}"><span class="nav-icon">🗂️</span>Kanban</a>
+  <a href="{{ url_for('comercial_kanban') }}" class="nav-item {% if request.endpoint=='comercial_kanban' %}active{% endif %}"><span class="nav-icon">🗂️</span>Leads</a>
 
   <div class="sec-label">Comunicación</div>
   <a href="{{ url_for('chat') }}" class="nav-item {% if request.endpoint=='chat' %}active{% endif %}">
@@ -198,7 +202,7 @@ tr:last-child td{border-bottom:none}
   </a>
   <a href="{{ url_for('notificaciones') }}" class="nav-item {% if request.endpoint=='notificaciones' %}active{% endif %}">
     <span class="nav-icon">🔔</span>Notificaciones
-    {% if notif_count > 0 %}<span class="nav-badge">{{ notif_count }}</span>{% endif %}
+    <span class="nav-badge" data-notif-badge style="{% if notif_count == 0 %}display:none{% endif %}">{{ notif_count if notif_count > 0 else '' }}</span>
   </a>
 
   <div class="sidebar-user">
@@ -280,20 +284,30 @@ function cargarNotifs() {
       list.innerHTML = '<div style="padding:1.5rem;text-align:center;color:var(--muted);font-size:.8rem">Sin notificaciones nuevas</div>';
       return;
     }
+    const esc = (v) => String(v || '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/\"/g, '&quot;')
+      .replace(/'/g, '&#39;');
     const iconos = { success:'✅', info:'ℹ️', lead:'🏷️', chat:'💬', warning:'⚠️' };
-    list.innerHTML = d.items.map(n => `
-      <div class="notif-item unread" onclick="irNotif(${n.id},'${n.url||''}')">
+    list.innerHTML = d.items.map(n => {
+      const safeUrl = encodeURIComponent(n.url || '');
+      return `
+      <div class="notif-item unread" onclick="irNotif(${n.id},'${safeUrl}')">
         <div class="notif-icon ${n.tipo}">${iconos[n.tipo]||'🔔'}</div>
         <div>
-          <div class="notif-title">${n.titulo}</div>
-          ${n.texto ? `<div class="notif-sub">${n.texto}</div>` : ''}
-          <div class="notif-time">${n.fecha}</div>
+          <div class="notif-title">${esc(n.titulo)}</div>
+          ${n.texto ? `<div class="notif-sub">${esc(n.texto)}</div>` : ''}
+          <div class="notif-time">${esc(n.fecha)}</div>
         </div>
-      </div>`).join('');
+      </div>`;
+    }).join('');
   });
 }
-function irNotif(id, url) {
+function irNotif(id, urlEnc) {
   fetch(`/api/notificaciones/${id}/leer`, {method:'POST'});
+  const url = decodeURIComponent(urlEnc || '');
   if (url) window.location.href = url;
   toggleNotif();
 }
@@ -314,7 +328,13 @@ setInterval(() => {
     } else if (d.total === 0 && dot) dot.remove();
     // Actualizar badges sidebar
     document.querySelectorAll('[data-notif-badge]').forEach(el => {
-      el.textContent = d.total > 0 ? d.total : '';
+      if (d.total > 0) {
+        el.textContent = d.total;
+        el.style.display = '';
+      } else {
+        el.textContent = '';
+        el.style.display = 'none';
+      }
     });
   }).catch(()=>{});
 }, 30000);

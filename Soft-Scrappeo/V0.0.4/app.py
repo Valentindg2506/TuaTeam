@@ -2,7 +2,7 @@
 Radar CRM v2 — Flask app completa.
 Novedades: competidores en lead, notificaciones, chat, bugs corregidos.
 """
-import io, threading, traceback
+import io, threading, traceback, time, re
 import datetime as _dt
 from datetime import datetime, timezone
 
@@ -27,6 +27,7 @@ from models import (db, Usuario, Asignacion, Lead, Competidor,
                     Comentario, Actividad, Notificacion, MensajeChat)
 from scraper import scrape_cnae, calcular_competidores
 from enrichment import enrich_lead
+from cnae_catalog import CNAE_CATALOG
 
 app = Flask(__name__)
 app.config.from_object(config)
@@ -35,6 +36,10 @@ db.init_app(app)
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 login_manager.login_message = "Inicia sesión para continuar."
+
+# Control global anti-bloqueo para scraping concurrente.
+SCRAPE_MAX_CONCURRENT = max(1, int(getattr(config, "SCRAPE_MAX_CONCURRENT_JOBS", 2)))
+_SCRAPE_SLOT = threading.Semaphore(SCRAPE_MAX_CONCURRENT)
 
 @login_manager.user_loader
 def load_user(uid): return db.session.get(Usuario, int(uid))
@@ -55,6 +60,80 @@ def crear_notif(usuario_id, tipo, titulo, texto="", url=""):
     n = Notificacion(usuario_id=usuario_id, tipo=tipo,
                      titulo=titulo, texto=texto, url=url)
     db.session.add(n)
+
+def _norm_phone(v):
+    s = re.sub(r"\D", "", str(v or ""))
+    if s.startswith("0034"): s = s[4:]
+    if s.startswith("34") and len(s) > 9: s = s[2:]
+    return s[:9] if len(s) >= 9 else (s or None)
+
+def _norm_email(v):
+    e = (v or "").strip().lower()
+    return e or None
+
+def _norm_web(v):
+    w = (v or "").strip()
+    if not w:
+        return None
+    if w.startswith("//"):
+        w = "https:" + w
+    elif not w.startswith(("http://", "https://")):
+        w = "https://" + w
+    return w
+
+def _norm_gerente(v):
+    g = re.sub(r"\s+", " ", str(v or "")).strip(" .,:;|-")
+    if not g:
+        return None
+    low = g.lower()
+    if any(x in low for x in (
+        "sitio web", "pagina web", "página web", "website",
+        "aviso legal", "politica de privacidad", "política de privacidad",
+        "cookies", "contacto",
+    )):
+        return None
+
+    toks = re.findall(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]+", g)
+    if len(toks) < 2 or len(toks) > 6:
+        return None
+    return g[:180]
+
+def _lead_completeness_map(data):
+    k = ("telefono", "email", "web", "direccion", "gerente")
+    return sum(1 for x in k if (data.get(x) or "").strip())
+
+_CNAE_CACHE = {"ts": 0.0, "data": {}}
+_CNAE_CACHE_LOCK = threading.Lock()
+
+def _get_cnae_catalog():
+    """
+    Catalogo para autocompletado CNAE:
+    - Base estatica (curada)
+    - Refuerzo dinamico desde asignaciones con descripcion
+    Cacheado para evitar consultas de DB por cada tecla.
+    """
+    now = time.time()
+    with _CNAE_CACHE_LOCK:
+        if _CNAE_CACHE["data"] and (now - _CNAE_CACHE["ts"] < 600):
+            return _CNAE_CACHE["data"]
+
+    data = dict(CNAE_CATALOG)
+    try:
+        rows = (db.session.query(Asignacion.cnae, Asignacion.cnae_desc)
+                .filter(Asignacion.cnae != None, Asignacion.cnae_desc != None)
+                .all())
+        for code, desc in rows:
+            c = re.sub(r"\D", "", str(code or "")).strip()
+            d = (desc or "").strip()
+            if 3 <= len(c) <= 5 and d:
+                data[c] = d
+    except Exception:
+        pass
+
+    with _CNAE_CACHE_LOCK:
+        _CNAE_CACHE["ts"] = now
+        _CNAE_CACHE["data"] = data
+    return data
 
 # ═════════════════════════════════════════════════════════════════════════════
 #  AUTH
@@ -168,15 +247,19 @@ def admin_asignacion_nueva():
     if not cnae.isdigit() or len(cnae) < 3:
         flash("CNAE inválido.", "error"); return redirect(url_for("admin_asignaciones"))
 
+    cnae_desc = (request.form.get("cnae_desc","") or "").strip()
+    if not cnae_desc:
+        cnae_desc = (_get_cnae_catalog().get(cnae) or "").strip()
+
     asig = Asignacion(
         comercial_id=cid, creado_por_id=current_user.id,
-        cnae=cnae, cnae_desc=request.form.get("cnae_desc","").strip(),
+        cnae=cnae, cnae_desc=cnae_desc,
         provincia=request.form.get("provincia","").strip(),
-        paginas=max(1, min(int(request.form.get("paginas",3) or 3), config.SCRAPE_MAX_PAGES)),
+        paginas=0,  # 0 = modo exhaustivo automático
     )
     db.session.add(asig); db.session.commit()
     threading.Thread(target=_run_scrape, args=(app, asig.id), daemon=True).start()
-    flash("Asignación creada. Scraping iniciado en segundo plano.", "success")
+    flash("Asignación creada. Scraping exhaustivo iniciado en segundo plano.", "success")
     return redirect(url_for("admin_asignaciones"))
 
 @app.route("/admin/asignaciones/<int:aid>/estado")
@@ -185,6 +268,40 @@ def asignacion_estado_api(aid):
     a = db.session.get(Asignacion, aid) or abort(404)
     return jsonify({"estado": a.estado, "progreso": a.progreso,
                     "mensaje": a.mensaje, "total": a.total_leads})
+
+@app.route("/api/cnae/sugerencias")
+@role_required("admin")
+def api_cnae_sugerencias():
+    q_raw = (request.args.get("q") or "").strip()
+    q_digits = re.sub(r"\D", "", q_raw)
+    q_text = q_raw.lower()
+    if not q_digits and len(q_text) < 2:
+        return jsonify([])
+
+    catalog = _get_cnae_catalog()
+    items = []
+    for code, desc in catalog.items():
+        c = str(code or "").strip()
+        d = str(desc or "").strip()
+        if not c or not d:
+            continue
+        if q_digits and c.startswith(q_digits):
+            rank = 0
+        elif q_text and q_text in d.lower():
+            rank = 1
+        elif q_digits and q_digits in c:
+            rank = 2
+        else:
+            continue
+        items.append((rank, c, d))
+
+    items.sort(key=lambda x: (x[0], len(x[1]), x[1]))
+    out = [{
+        "cnae": c,
+        "descripcion": d,
+        "label": f"{c} - {d}",
+    } for _, c, d in items[:15]]
+    return jsonify(out)
 
 @app.route("/api/dashboard/stats")
 @role_required("admin", "supervisor")
@@ -228,6 +345,30 @@ def admin_asignacion_eliminar(aid):
     flash("Asignación eliminada.", "success")
     return redirect(url_for("admin_asignaciones"))
 
+@app.route("/admin/asignaciones/<int:aid>/reintentar", methods=["POST"])
+@role_required("admin")
+def admin_asignacion_reintentar(aid):
+    a = db.session.get(Asignacion, aid) or abort(404)
+    if a.estado == "scrapeando":
+        flash("La asignación ya está scrapeando.", "error")
+        return redirect(url_for("admin_asignaciones"))
+
+    # Reiniciar estado y limpiar resultados previos de esta asignación.
+    for lead in a.leads.all():
+        db.session.delete(lead)
+
+    a.estado = "pendiente"
+    a.progreso = 0
+    a.mensaje = "Reintento manual solicitado…"
+    a.total_leads = 0
+    a.paginas = 0  # Forzar modo exhaustivo en reintentos
+    a.fecha_completada = None
+    db.session.commit()
+
+    threading.Thread(target=_run_scrape, args=(app, a.id), daemon=True).start()
+    flash("Reintento de scraping iniciado.", "success")
+    return redirect(url_for("admin_asignaciones"))
+
 @app.route("/admin/export/leads.xlsx")
 @role_required("admin")
 def admin_export_leads():
@@ -242,12 +383,13 @@ g_reenrich = {"activo": False, "total": 0, "hechos": 0}
 @role_required("admin")
 def admin_re_enriquecer_faltantes():
     global g_reenrich
+    from sqlalchemy import or_
     if g_reenrich["activo"]:
         return jsonify({"ok": False, "msg": "Ya hay un proceso de re-enriquecimiento en curso."})
         
     from enrichment import enrich_lead
     leads = Lead.query.filter(
-        db.or_(Lead.telefono == None, Lead.email == None, Lead.telefono == "", Lead.email == "", Lead.web == None)
+        or_(Lead.telefono == None, Lead.email == None, Lead.telefono == "", Lead.email == "", Lead.web == None)
     ).all()
     
     if not leads:
@@ -314,7 +456,12 @@ def supervisor_dashboard():
                       "ganados":estados.get("ganado",0),"perdidos":estados.get("perdido",0)})
 
     actividad = Actividad.query.order_by(Actividad.fecha.desc()).limit(30).all()
-    return render_template("supervisor/dashboard.html", stats=stats, actividad=actividad)
+    return render_template(
+        "supervisor/dashboard.html",
+        stats=stats,
+        actividad=actividad,
+        actividad_global=actividad,
+    )
 
 # ═════════════════════════════════════════════════════════════════════════════
 #  KANBAN
@@ -322,21 +469,45 @@ def supervisor_dashboard():
 @app.route("/kanban")
 @login_required
 def comercial_kanban():
+    from sqlalchemy import or_
+
     uid = request.args.get("user_id", type=int)
     target = (db.session.get(Usuario, uid)
               if uid and current_user.rol in ("admin","supervisor")
               else current_user)
     if not target: abort(404)
 
-    leads = (Lead.query.filter_by(comercial_id=target.id)
-             .order_by(Lead.orden, Lead.id).all())
+    vista = (request.args.get("vista") or "kanban").strip().lower()
+    if vista not in ("kanban", "lista"):
+        vista = "kanban"
+
+    q = (request.args.get("q") or "").strip()
+    leads_q = Lead.query.filter_by(comercial_id=target.id)
+    if q:
+        like_q = f"%{q}%"
+        leads_q = leads_q.filter(or_(
+            Lead.nombre.ilike(like_q),
+            Lead.cnae.ilike(like_q),
+            Lead.provincia.ilike(like_q),
+            Lead.email.ilike(like_q),
+            Lead.telefono.ilike(like_q),
+        ))
+    leads = leads_q.order_by(Lead.orden, Lead.id).all()
+
     por_estado = {k:[] for k,_,_ in config.KANBAN_ESTADOS}
     for l in leads:
         por_estado.setdefault(l.estado, []).append(l)
 
-    return render_template("comercial/kanban.html", target=target,
-                           por_estado=por_estado, estados=config.KANBAN_ESTADOS,
-                           total=len(leads))
+    return render_template(
+        "comercial/kanban.html",
+        target=target,
+        leads=leads,
+        por_estado=por_estado,
+        estados=config.KANBAN_ESTADOS,
+        total=len(leads),
+        vista=vista,
+        q=q,
+    )
 
 # ═════════════════════════════════════════════════════════════════════════════
 #  LEAD DETAIL
@@ -610,6 +781,19 @@ def _run_scrape(flask_app, asig_id):
             asig.estado=estado; asig.progreso=pct; asig.mensaje=msg
             db.session.commit()
 
+        # Esperar slot global para no disparar bloqueos 429 por concurrencia.
+        upd("pendiente", 1, "En cola anti-bloqueo… esperando turno de scraping")
+        acquired = False
+        t0 = time.time()
+        while not acquired:
+            acquired = _SCRAPE_SLOT.acquire(timeout=2.0)
+            if not acquired:
+                waited = int(time.time() - t0)
+                asig.estado = "pendiente"
+                asig.progreso = 1
+                asig.mensaje = f"En cola anti-bloqueo… {waited}s"
+                db.session.commit()
+
         upd("scrapeando", 5, "Iniciando scraping…")
 
         def on_progress(pct, msg):
@@ -618,19 +802,139 @@ def _run_scrape(flask_app, asig_id):
             db.session.commit()
 
         try:
-            leads_raw, pool, err, meta = scrape_cnae(
-                cnae=asig.cnae, provincia=asig.provincia or None,
-                paginas=asig.paginas, delay=config.SCRAPE_DELAY_SECONDS,
-                on_progress=on_progress,
-            )
+            max_429 = max(0, int(getattr(config, "SCRAPE_RETRY_429_ATTEMPTS", 4)))
+            max_soft = max(0, int(getattr(config, "SCRAPE_RESCUE_ATTEMPTS", 2)))
+            intento_429 = 0
+            intento_soft = 0
+            leads_raw = pool = None
+            err = None
+            meta = {}
+            nacional_exhaustivo = False
+            max_low_volume = max_soft
+
+            while True:
+                paginas_cfg = None if (asig.paginas is None or int(asig.paginas or 0) <= 0) else asig.paginas
+                nacional_exhaustivo = (paginas_cfg is None) and not (asig.provincia or "").strip()
+                max_low_volume = (2 if nacional_exhaustivo else max_soft)
+                max_429_local = min(max_429, 2) if nacional_exhaustivo else max_429
+                prefer_full_portal = nacional_exhaustivo
+                delay_eff = min(float(config.SCRAPE_DELAY_SECONDS), 1.2) if nacional_exhaustivo else float(config.SCRAPE_DELAY_SECONDS)
+                leads_raw, pool, err, meta = scrape_cnae(
+                    cnae=asig.cnae, provincia=asig.provincia or None,
+                    paginas=paginas_cfg, delay=delay_eff,
+                    on_progress=on_progress,
+                    prefer_full_portal=prefer_full_portal,
+                )
+                if err and "429" in str(err) and intento_429 < max_429_local:
+                    intento_429 += 1
+                    espera = (min(45, 10 + 12 * intento_429) if nacional_exhaustivo
+                              else min(180, 35 + 25 * intento_429))
+                    upd("pendiente", 2, (
+                        f"Bloqueo temporal del portal (429). "
+                        f"Reintento automático {intento_429}/{max_429_local} en {espera}s…"
+                    ))
+                    time.sleep(espera)
+                    upd("scrapeando", 5, "Reanudando scraping tras espera anti-bloqueo…")
+                    continue
+                if err and "429" in str(err) and nacional_exhaustivo:
+                    # Tras agotar reintentos al portal principal, activar rescate fallback.
+                    leads_raw, pool, err, meta = scrape_cnae(
+                        cnae=asig.cnae, provincia=asig.provincia or None,
+                        paginas=paginas_cfg, delay=config.SCRAPE_DELAY_SECONDS,
+                        on_progress=on_progress,
+                        prefer_full_portal=False,
+                    )
+
+                soft_patterns = (
+                    "No fue posible obtener resultados del portal principal ni del fallback web",
+                    "No se pudieron obtener resultados en el rescate nacional por provincias",
+                    "No se pudo cargar la fuente fallback empresascif",
+                    "Tiempo límite alcanzado",
+                )
+                if err and intento_soft < max_soft and any(p in str(err) for p in soft_patterns):
+                    intento_soft += 1
+                    espera = min(120, 20 + 18 * intento_soft)
+                    upd("pendiente", 2, (
+                        f"Fuentes web temporalmente inestables. "
+                        f"Reintento inteligente {intento_soft}/{max_soft} en {espera}s…"
+                    ))
+                    time.sleep(espera)
+                    upd("scrapeando", 5, "Reintentando scraping con rutas de rescate…")
+                    continue
+                fuente = (meta or {}).get("fuente")
+                low_volume_fallback = (
+                    not err
+                    and nacional_exhaustivo
+                    and fuente in (
+                        "fallback_ddg",
+                        "fallback_search_empresascif",
+                        "fallback_empresascif",
+                        "fallback_search_empresascif_nacional",
+                        "fallback_empresascif_nacional",
+                    )
+                    and len(leads_raw or []) < 80
+                )
+                if low_volume_fallback and intento_soft < max_low_volume:
+                    intento_soft += 1
+                    espera = (min(35, 8 + 6 * intento_soft) if nacional_exhaustivo
+                              else min(120, 24 + 20 * intento_soft))
+                    upd("pendiente", 2, (
+                        f"Volumen bajo ({len(leads_raw or [])} leads). "
+                        f"Reintento inteligente {intento_soft}/{max_low_volume} en {espera}s para ampliar cobertura…"
+                    ))
+                    time.sleep(espera)
+                    upd("scrapeando", 5, "Reintentando scraping nacional para ampliar leads…")
+                    continue
+                break
         except Exception as e:
             upd("error", 0, f"Excepción: {e}")
             return
+        finally:
+            if acquired:
+                _SCRAPE_SLOT.release()
 
         if err:
+            err_txt = str(err or "")
+            tolerables = (
+                "No fue posible obtener resultados del portal principal ni del fallback web",
+                "No se pudieron obtener resultados en el rescate nacional por provincias",
+                "Tiempo límite alcanzado",
+            )
+            if any(t in err_txt for t in tolerables):
+                asig.total_leads = 0
+                asig.estado = "completada"
+                asig.progreso = 100
+                asig.mensaje = (
+                    "⚠️ Sin resultados en este intento por bloqueo temporal de fuentes externas. "
+                    "Puedes reintentar en unos minutos."
+                )
+                asig.fecha_completada = utcnow()
+                db.session.commit()
+                return
             upd("error", 0, err); return
         if not leads_raw:
-            upd("error", 0, "Sin resultados."); return
+            fuente = (meta or {}).get("fuente")
+            actividad_count = (meta or {}).get("actividad_count")
+            fichas_validadas = (meta or {}).get("fichas_validadas")
+
+            asig.total_leads = 0
+            asig.estado = "completada"
+            asig.progreso = 100
+            if fuente == "fallback_empresascif":
+                extra = ""
+                if actividad_count:
+                    extra += f" · Ref. portal: ~{actividad_count} empresas"
+                if fichas_validadas:
+                    extra += f" · Fichas validadas: {fichas_validadas}"
+                asig.mensaje = (
+                    f"⚠️ 0 leads para CNAE {asig.cnae} en {asig.provincia or 'España'} "
+                    f"(fallback anti-bloqueo activo){extra}"
+                )
+            else:
+                asig.mensaje = f"⚠️ 0 leads para CNAE {asig.cnae} en {asig.provincia or 'España'}"
+            asig.fecha_completada = utcnow()
+            db.session.commit()
+            return
 
         upd("scrapeando", 82, f"Guardando {len(leads_raw)} leads…")
 
@@ -640,21 +944,23 @@ def _run_scrape(flask_app, asig_id):
         # Crear leads + competidores en BD
         # + Pre-enriquecimiento instantáneo vía Clearbit (sin delay, muy rápido)
         for e in leads_raw:
+            gerente_scrape = _norm_gerente(e.get("gerente")) if e.get("gerente") else None
             lead = Lead(
                 asignacion_id=asig.id, comercial_id=asig.comercial_id,
                 nombre=e["nombre"], cnae=e["cnae"], provincia=e["provincia"],
                 posicion_nacional=e["posicion"], evolucion=e["evolucion"],
                 tendencia=e["tendencia"], facturacion_num=e["facturacion_num"],
                 facturacion_raw=e["facturacion_raw"], url_ficha=e["url"],
+                gerente=gerente_scrape,
                 estado="nuevo",
             )
             # Intento rápido de domain guessing durante el guardado
             try:
                 quick = enrich_from_domain_guess(e["nombre"])
-                if quick.get("web"): lead.web = quick["web"]
-                if quick.get("email"): lead.email = quick["email"]
-                if quick.get("telefono"): lead.telefono = quick["telefono"]
-                if quick.get("direccion"): lead.direccion = quick["direccion"]
+                if quick.get("web"): lead.web = _norm_web(quick["web"])
+                if quick.get("email"): lead.email = _norm_email(quick["email"])
+                if quick.get("telefono"): lead.telefono = _norm_phone(quick["telefono"])
+                if quick.get("direccion"): lead.direccion = (quick["direccion"] or "").strip()[:300] or None
             except Exception:
                 pass
             db.session.add(lead)
@@ -682,19 +988,29 @@ def _run_scrape(flask_app, asig_id):
         asig.estado = "completada"
         asig.progreso = 100
 
-        # Mensaje informativo con contexto de páginas
-        pags_reales = meta.get("paginas_reales", asig.paginas)
+        # Mensaje informativo con contexto de rastreo
+        pags_reales = meta.get("paginas_reales", 0)
         agotado     = meta.get("agotado", False)
-        if agotado and pags_reales < asig.paginas:
+        fuente = meta.get("fuente")
+        fichas_validadas = meta.get("fichas_validadas")
+        if fuente in ("fallback_ddg", "fallback_empresascif", "fallback_search_empresascif", "fallback_search_empresascif_nacional", "fallback_empresascif_nacional"):
+            base = (
+                f"✅ {len(leads_raw)} leads · Fallback anti-bloqueo web activo "
+                f"(portal principal bloqueado temporalmente)"
+            )
+            if fichas_validadas:
+                base += f" · {fichas_validadas} fichas validadas"
+            asig.mensaje = base
+        elif agotado:
             asig.mensaje = (
                 f"✅ {len(leads_raw)} leads · "
-                f"{pags_reales} de {asig.paginas} pág. scrapeadas · "
-                f"CNAE agotado (sector pequeño)"
+                f"{pags_reales} páginas rastreadas · "
+                f"CNAE agotado"
             )
         else:
             asig.mensaje = (
                 f"✅ {len(leads_raw)} leads · "
-                f"{pags_reales} pág. scrapeadas"
+                f"{pags_reales} páginas rastreadas"
             )
         asig.fecha_completada = utcnow()
 
@@ -726,9 +1042,32 @@ def _enrich_one(flask_app, lead_id):
         try:
             datos = enrich_lead({"nombre":lead.nombre, "provincia":lead.provincia,
                                   "url":lead.url_ficha})
-            for k,v in datos.items():
-                if v: setattr(lead, k, v)
-            lead.enriquecido = True
+
+            # Normalización de calidad de datos antes de guardar.
+            if datos.get("telefono"):
+                datos["telefono"] = _norm_phone(datos.get("telefono"))
+            if datos.get("email"):
+                datos["email"] = _norm_email(datos.get("email"))
+            if datos.get("web"):
+                datos["web"] = _norm_web(datos.get("web"))
+            if datos.get("direccion"):
+                datos["direccion"] = (datos.get("direccion") or "").strip()[:300]
+            if datos.get("gerente"):
+                datos["gerente"] = _norm_gerente(datos.get("gerente"))
+
+            for k in ("telefono", "email", "web", "direccion", "gerente", "licita"):
+                v = datos.get(k)
+                if v:
+                    setattr(lead, k, v)
+
+            comp = _lead_completeness_map({
+                "telefono": lead.telefono or "",
+                "email": lead.email or "",
+                "web": lead.web or "",
+                "direccion": lead.direccion or "",
+                "gerente": lead.gerente or "",
+            })
+            lead.enriquecido = comp >= max(1, int(getattr(config, "ENRICHMENT_MIN_COMPLETENESS", 2)))
             db.session.commit()
         except Exception as e:
             print(f"[enrich_one] {lead_id}: {e}")
@@ -746,7 +1085,7 @@ def _enrich_batch(flask_app, lead_ids):
     from concurrent.futures import ThreadPoolExecutor, as_completed
     import time, random
 
-    WORKERS = 10  # Máximo probado sin bloqueos de Bing
+    WORKERS = max(1, int(getattr(config, "ENRICHMENT_MAX_WORKERS", 10)))
     START_STAGGER = 0.5  # segundos entre arranque de cada worker
 
     def _worker(args):
@@ -765,6 +1104,37 @@ def _enrich_batch(flask_app, lead_ids):
         futures = {executor.submit(_worker, a): a for a in args_list}
         for f in as_completed(futures):
             pass  # errores manejados dentro de _worker
+
+    # Segunda pasada opcional sobre leads incompletos para mejorar cobertura.
+    if not bool(getattr(config, "ENRICHMENT_SECOND_PASS", True)):
+        return
+
+    with flask_app.app_context():
+        min_comp = max(1, int(getattr(config, "ENRICHMENT_MIN_COMPLETENESS", 2)))
+        pass2_ids = []
+        for lid in lead_ids:
+            lead = db.session.get(Lead, lid)
+            if not lead:
+                continue
+            comp = _lead_completeness_map({
+                "telefono": lead.telefono or "",
+                "email": lead.email or "",
+                "web": lead.web or "",
+                "direccion": lead.direccion or "",
+                "gerente": lead.gerente or "",
+            })
+            if comp < min_comp:
+                pass2_ids.append(lid)
+
+    if not pass2_ids:
+        return
+
+    WORKERS_2 = max(1, min(6, WORKERS // 2 or 1))
+    args_list_2 = [(lid, i % WORKERS_2) for i, lid in enumerate(pass2_ids)]
+    with ThreadPoolExecutor(max_workers=WORKERS_2) as executor:
+        futures = {executor.submit(_worker, a): a for a in args_list_2}
+        for f in as_completed(futures):
+            pass
 
 
 # ═════════════════════════════════════════════════════════════════════════════

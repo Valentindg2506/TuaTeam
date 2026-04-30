@@ -28,8 +28,12 @@
           <div class="text-muted text-sm">{{ s.total }} leads totales</div>
         </div>
       </div>
-      <a href="{{ url_for('comercial_kanban', user_id=s.comercial.id) }}"
-         class="btn btn-outline btn-sm">Ver Kanban</a>
+      <div style="display:flex;gap:.4rem">
+        <a href="{{ url_for('comercial_kanban', user_id=s.comercial.id, vista='kanban') }}"
+           class="btn btn-outline btn-sm">Kanban</a>
+        <a href="{{ url_for('comercial_kanban', user_id=s.comercial.id, vista='lista') }}"
+           class="btn btn-outline btn-sm">Lista</a>
+      </div>
     </div>
 
     <!-- Barra de progreso por estados -->

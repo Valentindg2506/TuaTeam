@@ -1,10 +1,13 @@
 """Modelos Radar CRM v2 — incluye competidores, notificaciones y chat."""
-from datetime import datetime
+from datetime import datetime, timezone
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
+
+def utcnow():
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 
 class Usuario(UserMixin, db.Model):
@@ -15,7 +18,7 @@ class Usuario(UserMixin, db.Model):
     password_hash  = db.Column(db.String(255), nullable=False)
     rol            = db.Column(db.String(20), nullable=False)
     activo         = db.Column(db.Boolean, default=True)
-    fecha_creacion = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_creacion = db.Column(db.DateTime, default=utcnow)
     ultimo_acceso  = db.Column(db.DateTime, nullable=True)
 
     def set_password(self, p): self.password_hash = generate_password_hash(p)
@@ -40,12 +43,13 @@ class Asignacion(db.Model):
     cnae             = db.Column(db.String(10), nullable=False)
     cnae_desc        = db.Column(db.String(200), nullable=True)
     provincia        = db.Column(db.String(60), nullable=True)
-    paginas          = db.Column(db.Integer, default=3)
+    # Campo legacy: 0 => modo exhaustivo automático.
+    paginas          = db.Column(db.Integer, default=0)
     estado           = db.Column(db.String(20), default="pendiente")
     progreso         = db.Column(db.Integer, default=0)
     mensaje          = db.Column(db.String(500), nullable=True)
     total_leads      = db.Column(db.Integer, default=0)
-    fecha_creacion   = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha_creacion   = db.Column(db.DateTime, default=utcnow)
     fecha_completada = db.Column(db.DateTime, nullable=True)
 
     comercial  = db.relationship("Usuario", foreign_keys=[comercial_id])
@@ -83,8 +87,8 @@ class Lead(db.Model):
     # CRM
     estado              = db.Column(db.String(30), default="nuevo", index=True)
     orden               = db.Column(db.Integer, default=0)
-    fecha_creacion      = db.Column(db.DateTime, default=datetime.utcnow)
-    fecha_actualizacion = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    fecha_creacion      = db.Column(db.DateTime, default=utcnow)
+    fecha_actualizacion = db.Column(db.DateTime, default=utcnow, onupdate=utcnow)
 
     comercial    = db.relationship("Usuario", foreign_keys=[comercial_id])
     comentarios  = db.relationship("Comentario", backref="lead", lazy="dynamic",
@@ -134,7 +138,7 @@ class Comentario(db.Model):
     lead_id    = db.Column(db.Integer, db.ForeignKey("leads.id"), nullable=False)
     autor_id   = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=False)
     texto      = db.Column(db.Text, nullable=False)
-    fecha      = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha      = db.Column(db.DateTime, default=utcnow)
     autor      = db.relationship("Usuario")
 
 
@@ -145,7 +149,7 @@ class Actividad(db.Model):
     usuario_id = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=False)
     tipo       = db.Column(db.String(30), nullable=False)
     detalle    = db.Column(db.String(300), nullable=True)
-    fecha      = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha      = db.Column(db.DateTime, default=utcnow)
     usuario    = db.relationship("Usuario")
 
 
@@ -159,7 +163,7 @@ class Notificacion(db.Model):
     texto      = db.Column(db.String(300), nullable=True)
     url        = db.Column(db.String(300), nullable=True)
     leida      = db.Column(db.Boolean, default=False)
-    fecha      = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha      = db.Column(db.DateTime, default=utcnow)
     usuario    = db.relationship("Usuario")
 
 
@@ -171,6 +175,6 @@ class MensajeChat(db.Model):
     para_id      = db.Column(db.Integer, db.ForeignKey("usuarios.id"), nullable=False)
     texto        = db.Column(db.Text, nullable=False)
     leido        = db.Column(db.Boolean, default=False)
-    fecha        = db.Column(db.DateTime, default=datetime.utcnow)
+    fecha        = db.Column(db.DateTime, default=utcnow)
     de           = db.relationship("Usuario", foreign_keys=[de_id])
     para         = db.relationship("Usuario", foreign_keys=[para_id])

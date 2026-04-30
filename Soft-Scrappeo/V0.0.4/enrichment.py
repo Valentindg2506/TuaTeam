@@ -10,7 +10,7 @@ Nota: eleconomista ficha (429), einforma/infoempresa (JS-required),
 axesor/infocif (timeout/bloqueo) no son accesibles sin navegador real.
 La estrategia más efectiva es Bing → web propia.
 """
-import re, time, requests
+import re, time, requests, json
 from bs4 import BeautifulSoup
 from urllib.parse import quote_plus, urljoin, urlparse
 import unicodedata
@@ -91,9 +91,16 @@ def _dominio(url):
     except Exception:
         return ""
 
+def _dom_match(dom, patron):
+    return dom == patron or dom.endswith("." + patron)
+
 def _es_excluido(url_o_dom):
     dom = _dominio(url_o_dom) if url_o_dom.startswith("http") else url_o_dom.lower()
-    return any(exc in dom for exc in EXCLUIDOS_DOM)
+    return any(_dom_match(dom, exc) for exc in EXCLUIDOS_DOM)
+
+def _email_excluido(email):
+    dom = (email or "").split("@")[-1].lower()
+    return any(_dom_match(dom, exc) for exc in (EXCLUIDOS_EMAIL | EXCLUIDOS_DOM))
 
 def _primer_tel(texto):
     for m in RE_TEL.finditer(texto):
@@ -104,8 +111,7 @@ def _primer_tel(texto):
 def _primer_email(texto):
     for m in RE_EMAIL.finditer(texto):
         e = m.group(0).lower()
-        dom = e.split("@")[-1]
-        if not any(x in dom for x in EXCLUIDOS_EMAIL | EXCLUIDOS_DOM):
+        if not _email_excluido(e):
             return e
     return None
 
@@ -116,6 +122,93 @@ def _primer_web_externa(soup):
         if not href.startswith("http"): continue
         if not _es_excluido(href):
             return href
+    return None
+
+
+def _limpiar_gerente(cand):
+    """Filtra falsos positivos de 'gerente' que no son nombres de persona."""
+    g = re.sub(r"\s+", " ", str(cand or "")).strip(" .,:;|-")
+    if not g:
+        return None
+    gl = g.lower()
+    # Basura común de webs/plantillas.
+    if any(x in gl for x in (
+        "sitio web", "pagina web", "página web", "website", "home",
+        "aviso legal", "politica de privacidad", "política de privacidad",
+        "cookies", "contacto", "correo", "email", "telefono", "teléfono",
+    )):
+        return None
+
+    tokens = re.findall(r"[A-Za-zÁÉÍÓÚÑáéíóúñ]+", g)
+    if len(tokens) < 2 or len(tokens) > 6:
+        return None
+
+    stop = {"de", "del", "la", "las", "los", "y"}
+    basura = {
+        "sitio", "web", "pagina", "página", "contacto", "legal",
+        "privacidad", "cookies", "empresa", "inicio", "correo",
+        "email", "telefono", "teléfono", "blog", "api", "ventas",
+        "sl", "slu", "sa", "sau", "slp", "sociedad", "limitada", "anonima", "anónima",
+    }
+    meaningful = [t for t in tokens if t.lower() not in stop]
+    if len(meaningful) < 2:
+        return None
+    if any(t.lower() in basura for t in meaningful):
+        return None
+
+    # Si viene todo en minúsculas, normalmente es ruido del texto.
+    if g == g.lower():
+        return None
+    return g[:180]
+
+
+def _gerente_desde_jsonld(soup):
+    """
+    Intenta extraer una persona de bloques JSON-LD.
+    """
+    def walk(node):
+        if isinstance(node, dict):
+            yield node
+            for v in node.values():
+                yield from walk(v)
+        elif isinstance(node, list):
+            for x in node:
+                yield from walk(x)
+
+    for sc in soup.find_all("script", attrs={"type": re.compile(r"ld\+json", re.I)}):
+        raw = (sc.string or sc.get_text() or "").strip()
+        if not raw:
+            continue
+        try:
+            data = json.loads(raw)
+        except Exception:
+            continue
+
+        for node in walk(data):
+            if not isinstance(node, dict):
+                continue
+            ntype = str(node.get("@type", "")).lower()
+            name = (node.get("name") or "").strip()
+            if "person" in ntype and name:
+                cand = _limpiar_gerente(name)
+                if cand:
+                    return cand
+            for k in ("founder", "employee", "employees", "member", "director", "ceo", "owner"):
+                v = node.get(k)
+                if isinstance(v, dict):
+                    cand = _limpiar_gerente(v.get("name"))
+                    if cand:
+                        return cand
+                elif isinstance(v, list):
+                    for it in v:
+                        if isinstance(it, dict):
+                            cand = _limpiar_gerente(it.get("name"))
+                            if cand:
+                                return cand
+                elif isinstance(v, str):
+                    cand = _limpiar_gerente(v)
+                    if cand:
+                        return cand
     return None
 
 
@@ -155,7 +248,8 @@ def enrich_from_bing(nombre, provincia=""):
                     import base64
                     b64 = href.split("&u=a1")[1].split("&")[0]
                     href = base64.b64decode(b64 + "==").decode("utf-8", errors="ignore")
-                except: pass
+                except Exception:
+                    pass
                 
             # Limpiar separadores visuales de breadcrumbs
             href = re.sub(r'\s*›\s*', '/', href)
@@ -196,8 +290,8 @@ def enrich_from_bing(nombre, provincia=""):
                 r"[A-ZÁÉÍÓÚÑ][A-ZÁÉÍÓÚÑa-záéíóúñ]+){1,4})",
                 texto2)
             if m:
-                cand = m.group(1).strip()
-                if 2 <= len(cand.split()) <= 5 and len(cand) < 65:
+                cand = _limpiar_gerente(m.group(1))
+                if cand:
                     data["gerente"] = cand
 
     return data
@@ -234,7 +328,7 @@ def enrich_from_web_propia(web_url, nombre=""):
         txt = a.get_text().lower()
         # Buscar palabras clave en URL o Texto
         if any(x in href.lower() or x in txt for x in ["contacto", "contact", "about", "nosotros", "legal", "aviso", "privacidad"]):
-            full_url = href if href.startswith("http") else web_url.rstrip("/") + ("/" + href.lstrip("/") if not href.startswith("/") else href)
+            full_url = href if href.startswith("http") else urljoin(web_url, href)
             # Solo añadir si pertenece al mismo dominio
             if _dominio(full_url) == base_dominio:
                 links_to_check.add(full_url)
@@ -247,6 +341,11 @@ def enrich_from_web_propia(web_url, nombre=""):
         if not html: continue
         soup = BeautifulSoup(html, "lxml")
         texto = soup.get_text(" ", strip=True)
+
+        if not data.get("gerente"):
+            cand_jsonld = _gerente_desde_jsonld(soup)
+            if cand_jsonld:
+                data["gerente"] = cand_jsonld
 
         # -- Extracción de Teléfono --
         if not data.get("telefono"):
@@ -269,7 +368,7 @@ def enrich_from_web_propia(web_url, nombre=""):
             emails = re_email.findall(texto)
             for e in emails:
                 e = e.lower()
-                if not any(x in e for x in EXCLUIDOS_EMAIL | EXCLUIDOS_DOM):
+                if not _email_excluido(e):
                     data["email"] = e; break
 
         # -- Extracción de Dirección --
@@ -284,8 +383,8 @@ def enrich_from_web_propia(web_url, nombre=""):
         if not data.get("gerente"):
             m = re_gerente.search(texto)
             if m:
-                cand = m.group(1).strip()
-                if 2 <= len(cand.split()) <= 5:
+                cand = _limpiar_gerente(m.group(1))
+                if cand:
                     data["gerente"] = cand
 
         # Si ya tenemos todo, parar
@@ -373,15 +472,27 @@ def encontrar_web_clearbit(nombre):
     p1 = limpio.split()[0].split('-')[0]
     if len(p1) > 4 and p1 != limpio: intentos.append(p1)
 
+    base_tokens = set(re.findall(r"[a-z0-9]+", _slugificar(nombre)))
+    base_tokens = {t for t in base_tokens if len(t) > 2}
+
     for query in intentos:
         try:
             url = f"https://autocomplete.clearbit.com/v1/companies/suggest?query={quote_plus(query)}"
             r = _session().get(url, timeout=4)
             if r.status_code == 200:
                 data = r.json()
-                if data and len(data) > 0:
-                    domain = data[0].get("domain")
-                    if domain:
+                if not data:
+                    continue
+                for item in data[:6]:
+                    domain = (item.get("domain") or "").strip().lower()
+                    if not domain or _es_excluido(domain):
+                        continue
+                    item_tokens = set(re.findall(r"[a-z0-9]+", (item.get("name") or "").lower()))
+                    if not base_tokens or not item_tokens:
+                        return f"https://www.{domain}"
+                    common = len(base_tokens & item_tokens)
+                    ratio = common / max(1, len(base_tokens))
+                    if ratio >= 0.35:
                         return f"https://www.{domain}"
         except Exception:
             pass
@@ -407,7 +518,7 @@ def enrich_from_domain_guess(nombre):
                     if r.status_code == 200:
                         web_url = r.url
                         break
-                except:
+                except Exception:
                     pass
 
     if web_url:

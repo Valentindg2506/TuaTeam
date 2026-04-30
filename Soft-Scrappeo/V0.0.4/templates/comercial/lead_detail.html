@@ -3,7 +3,9 @@
 {% block topbar_title %}{{ lead.nombre }}{% endblock %}
 {% block topbar_sub %}{{ lead.provincia or '' }} · CNAE {{ lead.cnae or '' }}{% endblock %}
 {% block topbar_right %}
-<a href="{{ url_for('comercial_kanban') }}" class="btn btn-outline btn-sm">← Kanban</a>
+{% set back_vista = request.args.get('vista', 'kanban') %}
+{% set back_uid = (lead.comercial_id if (current_user.rol in ('admin', 'supervisor') and lead.comercial_id != current_user.id) else None) %}
+<a href="{{ url_for('comercial_kanban', user_id=back_uid, vista=back_vista) }}" class="btn btn-outline btn-sm">← {{ 'Lista' if back_vista == 'lista' else 'Kanban' }}</a>
 {% if lead.telefono %}
 <a href="tel:{{ lead.telefono }}" class="btn btn-green btn-sm">📞 Llamar</a>
 <a href="https://wa.me/34{{ lead.telefono|replace(' ','')|replace('-','') }}"

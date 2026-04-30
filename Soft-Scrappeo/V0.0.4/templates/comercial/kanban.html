@@ -1,17 +1,32 @@
 {% extends "base.html" %}
-{% block title %}Kanban — {{ target.nombre }}{% endblock %}
-{% block topbar_title %}{% if target.id != current_user.id %}Kanban de {{ target.nombre }}{% else %}Mis Leads{% endif %}{% endblock %}
-{% block topbar_sub %}{{ total }} leads · arrastra para cambiar estado{% endblock %}
+{% block title %}Leads — {{ target.nombre }}{% endblock %}
+{% block topbar_title %}{% if target.id != current_user.id %}Leads de {{ target.nombre }}{% else %}Mis Leads{% endif %}{% endblock %}
+{% block topbar_sub %}{{ total }} leads{% if vista == 'kanban' %} · arrastra para cambiar estado{% endif %}{% if q %} · filtro: "{{ q }}"{% endif %}{% endblock %}
 {% block topbar_right %}
-<input type="search" id="buscar" placeholder="🔍 Buscar…"
-  style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;
-         color:var(--text);font-family:Inter,sans-serif;font-size:.82rem;
-         padding:.4rem .85rem;width:190px;outline:none">
+<form method="GET" action="{{ url_for('comercial_kanban') }}" style="display:flex;align-items:center;gap:.55rem">
+  {% if target.id != current_user.id %}<input type="hidden" name="user_id" value="{{ target.id }}">{% endif %}
+  <input type="hidden" name="vista" value="{{ vista }}">
+  <input type="search" name="q" id="buscar" value="{{ q or '' }}" placeholder="Buscar empresa, provincia, email..."
+    style="background:var(--bg3);border:1px solid var(--border2);border-radius:8px;
+           color:var(--text);font-family:Inter,sans-serif;font-size:.82rem;
+           padding:.42rem .85rem;width:min(250px,36vw);outline:none">
+</form>
+<div style="display:flex;align-items:center;gap:.35rem;background:var(--bg3);padding:.2rem;border:1px solid var(--border);border-radius:9px">
+  <a class="btn btn-sm {% if vista == 'kanban' %}btn-red{% else %}btn-outline{% endif %}"
+     href="{{ url_for('comercial_kanban', user_id=(target.id if target.id != current_user.id else None), vista='kanban', q=q or None) }}">
+    Kanban
+  </a>
+  <a class="btn btn-sm {% if vista == 'lista' %}btn-red{% else %}btn-outline{% endif %}"
+     href="{{ url_for('comercial_kanban', user_id=(target.id if target.id != current_user.id else None), vista='lista', q=q or None) }}">
+    Lista
+  </a>
+</div>
 {% endblock %}
 
 {% block extra_css %}
 <style>
-.kb-wrap{display:flex;gap:.9rem;overflow-x:auto;padding-bottom:1rem;align-items:flex-start}
+.kb-scroll{width:100%;max-width:100%;overflow-x:auto;padding-bottom:.4rem}
+.kb-wrap{display:flex;gap:.9rem;align-items:flex-start;min-width:max-content}
 .kb-col{flex:0 0 270px;background:var(--bg2);border:1px solid var(--border);
   border-radius:var(--radius-l);overflow:hidden;display:flex;flex-direction:column}
 .col-hdr{padding:.7rem .9rem;display:flex;align-items:center;gap:.45rem;border-bottom:2px solid;
@@ -21,7 +36,6 @@
 .col-n{font-size:.68rem;color:var(--muted);background:var(--bg3);border-radius:99px;
   padding:.08rem .45rem;font-weight:600}
 .col-cards{padding:.55rem;flex:1;min-height:60px;display:flex;flex-direction:column;gap:.45rem}
-/* Tarjeta */
 .kcard{background:var(--bg3);border:1px solid var(--border);border-radius:var(--radius);
   padding:.75rem;cursor:pointer;transition:all .15s;position:relative}
 .kcard:hover{border-color:var(--red-700);background:#221414}
@@ -34,7 +48,6 @@
 .kcard-foot{display:flex;align-items:center;justify-content:space-between;margin-top:.45rem}
 .kcard-fact{font-size:.69rem;color:var(--muted)}
 .kcard-actions{display:flex;gap:.3rem}
-/* Botones de acción en tarjeta */
 .kbtn{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);
   background:var(--bg2);color:var(--muted);display:flex;align-items:center;justify-content:center;
   font-size:.82rem;cursor:pointer;text-decoration:none;transition:all .15s;flex-shrink:0}
@@ -48,10 +61,86 @@
 .licita-no{background:rgba(185,28,28,.15);color:var(--red-400)}
 .notif-badge{font-size:.62rem;background:rgba(234,179,8,.15);color:#facc15;
   border-radius:3px;padding:.08rem .35rem}
+
+.leads-list-table td,.leads-list-table th{white-space:nowrap}
+.leads-list-table td.name-cell{white-space:normal;min-width:260px}
+.estado-select{
+  background:var(--bg3);
+  border:1px solid var(--border2);
+  color:var(--text);
+  border-radius:7px;
+  padding:.28rem .45rem;
+  font-size:.75rem;
+}
+.empty-leads{
+  padding:2.2rem 1rem;
+  text-align:center;
+  color:var(--muted);
+}
 </style>
 {% endblock %}
 
 {% block content %}
+{% if vista == 'lista' %}
+<div class="card">
+  <div class="table-wrap">
+    <table class="leads-list-table">
+      <thead>
+        <tr>
+          <th>Empresa</th>
+          <th>Provincia</th>
+          <th>CNAE</th>
+          <th>Facturación</th>
+          <th>Estado</th>
+          <th>Contacto</th>
+          <th>Acciones</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for lead in leads %}
+        <tr>
+          <td class="name-cell">
+            <strong>{{ lead.nombre }}</strong>
+            {% if lead.comentarios.count() > 0 %}
+            <span class="notif-badge" style="margin-left:.3rem">💬 {{ lead.comentarios.count() }}</span>
+            {% endif %}
+          </td>
+          <td>{{ lead.provincia or '—' }}</td>
+          <td>{% if lead.cnae %}<span class="badge badge-gray">{{ lead.cnae }}</span>{% else %}—{% endif %}</td>
+          <td>
+            {{ lead.facturacion_raw or '—' }}
+            {% if lead.tendencia == 'Sube' %}<span class="tend-s"> ▲</span>
+            {% elif lead.tendencia == 'Baja' %}<span class="tend-b"> ▼</span>{% endif %}
+          </td>
+          <td>
+            <select class="estado-select" data-id="{{ lead.id }}">
+              {% for ek, el, ec in estados %}
+              <option value="{{ ek }}" {% if lead.estado == ek %}selected{% endif %}>{{ el }}</option>
+              {% endfor %}
+            </select>
+          </td>
+          <td>
+            {% if lead.telefono %}
+            <a href="tel:{{ lead.telefono }}" class="btn btn-sm btn-green">📞</a>
+            <a href="https://wa.me/34{{ lead.telefono|replace(' ','')|replace('-','') }}" target="_blank" class="btn btn-sm" style="background:rgba(37,211,102,.15);color:#25d366;border:1px solid rgba(37,211,102,.3)">💬</a>
+            {% else %}
+            <span class="text-muted">Sin teléfono</span>
+            {% endif %}
+          </td>
+          <td>
+            <a href="{{ url_for('lead_detail', lid=lead.id, vista='lista') }}" class="btn btn-sm btn-outline">Abrir</a>
+          </td>
+        </tr>
+        {% endfor %}
+        {% if not leads %}
+        <tr><td colspan="7"><div class="empty-leads">No hay leads para este filtro.</div></td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="kb-scroll">
 <div class="kb-wrap" id="kanban">
   {% for ek, el, ec in estados %}
   <div class="kb-col" data-estado="{{ ek }}">
@@ -76,19 +165,18 @@
             {% if lead.tendencia == 'Sube' %}<span class="tend-s"> ▲</span>
             {% elif lead.tendencia == 'Baja' %}<span class="tend-b"> ▼</span>{% endif %}
             {% if lead.comentarios.count() > 0 %}
-              <span class="notif-badge">💬 {{ lead.comentarios.count() }}</span>
+            <span class="notif-badge">💬 {{ lead.comentarios.count() }}</span>
             {% endif %}
           </span>
           <div class="kcard-actions" onclick="event.stopPropagation()">
             {% if lead.telefono %}
             <a href="tel:{{ lead.telefono }}" class="kbtn kbtn-call" title="Llamar {{ lead.telefono }}">📞</a>
-            <a href="https://wa.me/34{{ lead.telefono|replace(' ','')|replace('-','') }}"
-               target="_blank" class="kbtn kbtn-wa" title="WhatsApp {{ lead.telefono }}">💬</a>
+            <a href="https://wa.me/34{{ lead.telefono|replace(' ','')|replace('-','') }}" target="_blank" class="kbtn kbtn-wa" title="WhatsApp {{ lead.telefono }}">💬</a>
             {% else %}
             <span class="kbtn" title="Sin teléfono" style="opacity:.3;cursor:default">📞</span>
             <span class="kbtn" title="Sin teléfono" style="opacity:.3;cursor:default">💬</span>
             {% endif %}
-            <a href="{{ url_for('lead_detail', lid=lead.id) }}" class="kbtn kbtn-open" title="Abrir detalle">→</a>
+            <a href="{{ url_for('lead_detail', lid=lead.id, vista='kanban') }}" class="kbtn kbtn-open" title="Abrir detalle">→</a>
           </div>
         </div>
       </div>
@@ -97,10 +185,31 @@
   </div>
   {% endfor %}
 </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
+function postEstado(leadId, nuevoEstado, onOk) {
+  fetch(`/lead/${leadId}/estado`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({estado: nuevoEstado})
+  }).then(r => r.json()).then(d => {
+    if (d && d.ok && typeof onOk === 'function') onOk();
+  }).catch(() => {});
+}
+
+{% if vista == 'lista' %}
+document.querySelectorAll('.estado-select').forEach(sel => {
+  sel.addEventListener('change', function() {
+    const leadId = this.dataset.id;
+    const v = this.value;
+    postEstado(leadId, v);
+  });
+});
+{% else %}
 let dragged = null;
 
 document.querySelectorAll('.kcard').forEach(addDrag);
@@ -117,7 +226,7 @@ function addDrag(card) {
     document.querySelectorAll('.drop-over').forEach(el => el.classList.remove('drop-over'));
   });
   card.addEventListener('click', () => {
-    window.location.href = `/lead/${card.dataset.id}`;
+    window.location.href = `/lead/${card.dataset.id}?vista=kanban`;
   });
 }
 
@@ -134,28 +243,17 @@ document.querySelectorAll('.col-cards').forEach(col => {
     const nuevoEstado = col.closest('.kb-col').dataset.estado;
     col.appendChild(dragged);
     actualizarContadores();
-
-    fetch(`/lead/${dragged.dataset.id}/estado`, {
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({estado: nuevoEstado})
-    });
+    postEstado(dragged.dataset.id, nuevoEstado);
   });
 });
 
 function actualizarContadores() {
   document.querySelectorAll('.kb-col').forEach(col => {
     const n = col.querySelectorAll('.kcard').length;
-    document.getElementById('cnt-' + col.dataset.estado).textContent = n;
+    const cnt = document.getElementById('cnt-' + col.dataset.estado);
+    if (cnt) cnt.textContent = n;
   });
 }
-
-document.getElementById('buscar').addEventListener('input', function() {
-  const q = this.value.toLowerCase();
-  document.querySelectorAll('.kcard').forEach(card => {
-    card.style.display = card.textContent.toLowerCase().includes(q) ? '' : 'none';
-  });
-  actualizarContadores();
-});
+{% endif %}
 </script>
 {% endblock %}

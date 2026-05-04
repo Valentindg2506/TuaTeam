@@ -65,7 +65,16 @@ def _norm_phone(v):
     s = re.sub(r"\D", "", str(v or ""))
     if s.startswith("0034"): s = s[4:]
     if s.startswith("34") and len(s) > 9: s = s[2:]
-    return s[:9] if len(s) >= 9 else (s or None)
+    s = s[:9] if len(s) >= 9 else s
+    if not s or len(s) != 9:
+        return s or None
+    # Validate Spanish phone prefix
+    if s[0] not in "6789":
+        return None
+    # Reject toll-free/premium
+    if s.startswith("900") or s.startswith("800") or s.startswith("700"):
+        return None
+    return s
 
 def _norm_email(v):
     e = (v or "").strip().lower()
@@ -937,10 +946,6 @@ def _run_scrape(flask_app, asig_id):
             return
 
         upd("scrapeando", 82, f"Guardando {len(leads_raw)} leads…")
-
-        # Importar función de domain guessing para pre-enriquecimiento rápido
-        from enrichment import enrich_from_domain_guess
-
         # Crear leads + competidores en BD
         # + Pre-enriquecimiento instantáneo vía Clearbit (sin delay, muy rápido)
         for e in leads_raw:
@@ -954,15 +959,8 @@ def _run_scrape(flask_app, asig_id):
                 gerente=gerente_scrape,
                 estado="nuevo",
             )
-            # Intento rápido de domain guessing durante el guardado
-            try:
-                quick = enrich_from_domain_guess(e["nombre"])
-                if quick.get("web"): lead.web = _norm_web(quick["web"])
-                if quick.get("email"): lead.email = _norm_email(quick["email"])
-                if quick.get("telefono"): lead.telefono = _norm_phone(quick["telefono"])
-                if quick.get("direccion"): lead.direccion = (quick["direccion"] or "").strip()[:300] or None
-            except Exception:
-                pass
+            # No hacemos peticiones de red síncronas durante el guardado.
+            # El enriquecimiento de datos se hará asíncronamente después.
             db.session.add(lead)
             db.session.flush()  # obtener lead.id
 

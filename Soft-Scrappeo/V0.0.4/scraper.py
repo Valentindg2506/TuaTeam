@@ -506,7 +506,7 @@ def scrape_cnae_fallback_search_empresascif(
         cnae=cnae,
         provincia=(prov if prov else None),
     )
-    max_terms = 14 if prov else (34 if exhaustive else 14)
+    max_terms = 16 if prov else (42 if exhaustive else 14)
     for ti, term in enumerate(term_slugs[:max_terms], 1):
         if (time.time() - started) > max_runtime:
             break
@@ -515,7 +515,8 @@ def scrape_cnae_fallback_search_empresascif(
             on_progress(min(pct, 58), f"Fallback buscador interno: término {ti}/{min(len(term_slugs), max_terms)}…")
         internas_usadas += 1
         try:
-            candidate_urls.extend(_empresascif_query_company_urls(session, term))
+            term_pages = (6 if exhaustive and not prov else (3 if exhaustive else 2))
+            candidate_urls.extend(_empresascif_query_company_urls(session, term, max_pages=term_pages))
         except Exception:
             pass
         time.sleep(max(0.05, delay * 0.08) + random.uniform(0.01, 0.08))
@@ -530,22 +531,22 @@ def scrape_cnae_fallback_search_empresascif(
             f"site:empresascif.com/empresa \"{prov}\" \"{cnae}\"",
         ])
     else:
-        provincias_top = [
+        provincias_top = list(dict.fromkeys([
             "madrid", "barcelona", "valencia", "sevilla", "malaga", "bizkaia",
             "murcia", "zaragoza", "cadiz", "alicante", "asturias", "tarragona",
-        ]
+        ] + list(PROV_TO_EMPRESASCIF_SLUG.keys())))
         queries.extend([
             f"site:empresascif.com/empresa cnae {cnae}",
             f"site:empresascif.com/empresa \"CNAE\" \"{cnae}\"",
             f"site:empresascif.com/empresa \"{cnae}\" \"{prov or 'espana'}\"",
         ])
-        for p in provincias_top:
+        for p in provincias_top[:30]:
             queries.append(f"site:empresascif.com/empresa cnae {cnae} {p}")
 
     queries = list(dict.fromkeys([q.strip() for q in queries if q.strip()]))
-    max_queries = 8 if prov else (16 if exhaustive else 9)
+    max_queries = 10 if prov else (32 if exhaustive else 10)
     queries = queries[:max_queries]
-    min_candidates_before_external = 64 if exhaustive else 18
+    min_candidates_before_external = 1600 if exhaustive else 18
 
     if len(candidate_urls) < min_candidates_before_external:
         for qi, q in enumerate(queries, 1):
@@ -686,20 +687,20 @@ def scrape_cnae_fallback_search_empresascif_nacional(cnae, paginas=None, delay=1
 
     todas = list(dict.fromkeys(prioridad + list(PROV_TO_EMPRESASCIF_SLUG.keys())))
     if exhaustive:
-        provs = todas[:36]
-        min_expected = 140
-        max_runtime_total = 420
-        per_runtime = 13
-        per_candidates = 520
+        provs = todas[:20]  # Cover more provinces for national search
+        min_expected = 80
+        max_runtime_total = 360
+        per_runtime = 40
+        per_candidates = 1200
         workers = 3
-        paginas_prov = None
+        paginas_prov = None  # exhaustive per province too
     else:
-        provs = todas[:12]
-        min_expected = 50
-        max_runtime_total = 160
-        per_runtime = 14
-        per_candidates = 220
-        workers = 2
+        provs = todas[:15]
+        min_expected = 60
+        max_runtime_total = 200
+        per_runtime = 20
+        per_candidates = 500
+        workers = 3
         paginas_prov = 1
     started = time.time()
     leads_all = []
@@ -894,20 +895,20 @@ def scrape_cnae_fallback_empresascif_nacional(cnae, paginas=None, delay=1.4, on_
     todas = list(dict.fromkeys(prioridad + list(PROV_TO_EMPRESASCIF_SLUG.keys())))
 
     if exhaustive:
-        # Balance cobertura/tiempo para no bloquear asignaciones nacionales.
-        max_runtime_total = 260
-        fase1_n = min(len(todas), 14)
-        fase2_n = min(len(todas), 22)
-        runtime_fase1 = 8
-        runtime_fase2 = 12
-        target = 110
+        # Aggressive coverage for national exhaustive mode.
+        max_runtime_total = 400
+        fase1_n = min(len(todas), 20)
+        fase2_n = min(len(todas), 30)
+        runtime_fase1 = 12
+        runtime_fase2 = 18
+        target = 150
     else:
-        max_runtime_total = 140
-        fase1_n = min(len(todas), 6)
-        fase2_n = min(len(todas), 10)
-        runtime_fase1 = 8
-        runtime_fase2 = 12
-        target = 20
+        max_runtime_total = 200
+        fase1_n = min(len(todas), 10)
+        fase2_n = min(len(todas), 16)
+        runtime_fase1 = 10
+        runtime_fase2 = 14
+        target = 40
 
     leads_all = []
     pool_all = []
@@ -1230,7 +1231,7 @@ def _empresascif_build_search_terms(cnae, provincia=None):
     return out
 
 
-def _empresascif_query_company_urls(session, term_slug):
+def _empresascif_query_company_urls(session, term_slug, max_pages=1):
     """
     Consulta /busqueda/<slug>/ de empresascif y extrae fichas de empresa.
     """
@@ -1241,7 +1242,18 @@ def _empresascif_query_company_urls(session, term_slug):
     html = _empresascif_get(session, url, timeout=9)
     if not html:
         return []
-    return _empresascif_extract_company_links(html)
+    out = _empresascif_extract_company_links(html)
+    if int(max_pages or 1) <= 1:
+        return list(dict.fromkeys(out))
+
+    pag_links = _empresascif_extract_pagination_links(html, url)
+    if pag_links:
+        for purl in pag_links[:max(0, int(max_pages) - 1)]:
+            h2 = _empresascif_get(session, purl, timeout=8)
+            if h2:
+                out.extend(_empresascif_extract_company_links(h2))
+            time.sleep(random.uniform(0.03, 0.10))
+    return list(dict.fromkeys(out))
 
 
 def _empresascif_parse_facturacion(texto):
@@ -1469,7 +1481,7 @@ def scrape_cnae_fallback_empresascif(
 
     # Escaneo más amplio por provincia para evitar falsos 0 leads.
     if exhaustive:
-        pages_budget = min(len(municipio_orden), 8) if fast_mode else len(municipio_orden)
+        pages_budget = min(len(municipio_orden), 8) if fast_mode else min(len(municipio_orden), 20)
     else:
         if fast_mode:
             pages_budget = min(len(municipio_orden), max(4, min(12, paginas_req * 4)))
@@ -1520,7 +1532,7 @@ def scrape_cnae_fallback_empresascif(
 
     extra_scan_urls = list(dict.fromkeys(extra_scan_urls))
     if extra_scan_urls:
-        extra_budget = min(len(extra_scan_urls), 220 if (exhaustive and not fast_mode) else 48)
+        extra_budget = min(len(extra_scan_urls), 60 if (exhaustive and not fast_mode) else 24)
         for j, eurl in enumerate(extra_scan_urls[:extra_budget], 1):
             if (time.time() - started) > max_runtime:
                 break
@@ -1549,7 +1561,8 @@ def scrape_cnae_fallback_empresascif(
                 break
             if on_progress and ti <= 5:
                 on_progress(46, f"Fallback empresascif: buscando fichas semilla ({ti}/{min(len(term_slugs), max_terms)})…")
-            seed_urls.extend(_empresascif_query_company_urls(session, term))
+            seed_pages = 3 if exhaustive and not fast_mode else 1
+            seed_urls.extend(_empresascif_query_company_urls(session, term, max_pages=seed_pages))
             time.sleep(max(0.04, delay * 0.06) + random.uniform(0.01, 0.06))
     except Exception:
         pass
@@ -1596,6 +1609,7 @@ def scrape_cnae_fallback_empresascif(
         max_fichas = min(SCRAPE_EXHAUSTIVE_FALLBACK_MAX_FICHAS, len(company_urls))
         if isinstance(actividad_count, int) and actividad_count > 0:
             max_fichas = min(max_fichas, int(max(850, min(SCRAPE_EXHAUSTIVE_FALLBACK_MAX_FICHAS, actividad_count * 5.5))))
+        max_fichas = min(max_fichas, 1100)
     else:
         max_fichas = min(2200, max(420, paginas_req * 220))
         if isinstance(actividad_count, int) and actividad_count > 0:
@@ -1922,18 +1936,31 @@ def deduplicar(empresas):
     """
     Elimina duplicados manteniendo el de mejor posición (menor número).
     Dos empresas son duplicado si su nombre normalizado coincide.
+    When merging, keeps the entry with the best data (facturacion, url, etc).
     """
-    vistas = {}  # clave (url o nombre_norm) → empresa
+    vistas = {}  # clave nombre_norm → empresa
     for e in empresas:
-        clave = (e.get("url") or "").strip().lower() or normalizar(e["nombre"])
+        clave = normalizar(e.get("nombre", ""))
+        if not clave:
+            continue
         if clave not in vistas:
             vistas[clave] = e
         else:
+            existing = vistas[clave]
             # Quedarse con la de mejor posición (posición numérica menor)
-            actual_pos = vistas[clave].get("posicion") or 999999
+            actual_pos = existing.get("posicion") or 999999
             nueva_pos  = e.get("posicion") or 999999
             if nueva_pos < actual_pos:
+                # Keep the new one but merge any missing data from old
+                for k in ("gerente", "facturacion_num", "facturacion_raw", "url"):
+                    if not e.get(k) and existing.get(k):
+                        e[k] = existing[k]
                 vistas[clave] = e
+            else:
+                # Keep existing but merge any missing data from new
+                for k in ("gerente", "facturacion_num", "facturacion_raw", "url"):
+                    if not existing.get(k) and e.get(k):
+                        existing[k] = e[k]
     return list(vistas.values())
 
 
@@ -2018,9 +2045,9 @@ def scrape_cnae(cnae, provincia=None, paginas=None, delay=1.5, on_progress=None,
         err_last = None
         meta_search_nacional = None
         if provincia_arg:
-            enough_target = 24 if exhaustive else 12
+            enough_target = 30 if exhaustive else 15
         else:
-            enough_target = 200 if exhaustive else 60
+            enough_target = 300 if exhaustive else 80
 
         leads_s, pool_s, err_s, meta_s = scrape_cnae_fallback_search_empresascif(
             cnae=cnae,
@@ -2059,7 +2086,7 @@ def scrape_cnae(cnae, provincia=None, paginas=None, delay=1.5, on_progress=None,
                 err_last = err_sn or err_last
 
         # Si ya hay una base nacional suficientemente amplia, evitar rescate profundo.
-        if (not provincia_arg) and exhaustive and len(leads_acc) >= 80:
+        if (not provincia_arg) and exhaustive and len(leads_acc) >= 100:
             return leads_acc, (pool_acc or leads_acc), None, (meta_search_nacional or meta_s)
 
         # 2) empresascif provincial o nacional por provincias (validación directa).
